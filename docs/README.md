@@ -17,6 +17,8 @@ Welcome to the Multi-Backend Video Generator documentation. This directory conta
 
 ### Advanced Topics
 - 🔗 **[Stitching Guide](advanced/stitching.md)** - Multi-clip seamless video generation
+- 🖼️ **[Image Grouping Guide](advanced/image-grouping.md)** - Control which images are used per clip
+- 📋 **[Image Grouping Quick Reference](advanced/image-grouping-quick.md)** - TL;DR version
 - 🎯 **[Prompt Engineering](advanced/prompts.md)** - Writing effective video prompts
 - 🛠️ **[Troubleshooting](advanced/troubleshooting.md)** - Common issues and solutions
 
@@ -49,6 +51,8 @@ docs/
 │
 ├── advanced/                    # Advanced usage topics
 │   ├── stitching.md            # Multi-clip video generation
+│   ├── image-grouping.md       # Image distribution per clip
+│   ├── image-grouping-quick.md # Quick reference for image grouping
 │   ├── prompts.md              # Prompt engineering guide
 │   └── troubleshooting.md      # Problem solving
 │

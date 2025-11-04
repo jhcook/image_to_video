@@ -26,8 +26,9 @@ Minimal example:
      "Clip 3: Final reveal"
 ```
 
+  **💡 Tip:** By default, all images are shared across all clips. For more control over which images are used for each clip, see the **[Image Grouping Guide](image-grouping-quick.md)**.
+
 Outputs:
-- `veo3_clip_1.mp4` → Used to derive the first frame of clip 2
 - `veo3_clip_2.mp4` → Used to derive the first frame of clip 3
 - `veo3_clip_3.mp4`
 
