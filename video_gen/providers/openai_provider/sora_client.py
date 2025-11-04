@@ -32,6 +32,23 @@ class SoraAPIClient:
         
         self.config = config
         self.logger = get_library_logger()
+        
+        # Validate API key
+        if not config.api_key:
+            raise ValueError(
+                "OPENAI_API_KEY not set. Get your API key from:\n"
+                "https://platform.openai.com/api-keys\n"
+                "and set it in your .env file: OPENAI_API_KEY=sk-..."
+            )
+        
+        # Check for placeholder values
+        if config.api_key in ("your_openai_api_key_here", "your_api_key_here", "sk-..."):
+            raise ValueError(
+                f"OPENAI_API_KEY appears to be a placeholder: '{config.api_key}'\n"
+                "Replace it with your actual API key from:\n"
+                "https://platform.openai.com/api-keys"
+            )
+        
         self.client = OpenAI(api_key=config.api_key)
         self.logger.debug("SoraAPIClient initialized")
     
@@ -113,8 +130,20 @@ class SoraAPIClient:
                     self.logger.error("Sora-2 model not found")
                     raise RuntimeError("Sora-2 model not found. Please check if you have access to the Sora API.")
                 elif "401" in error_str or "unauthorized" in error_str.lower():
-                    self.logger.error("API key is invalid or unauthorized")
-                    raise RuntimeError("API key is invalid or you don't have access to the Sora API.")
+                    self.logger.error(
+                        "Authentication failed (401 Unauthorized). This usually means:\n"
+                        "  1. OPENAI_API_KEY is invalid or expired\n"
+                        "  2. API key doesn't have access to Sora models\n"
+                        "  3. Sora access not enabled for your account\n\n"
+                        "Solutions:\n"
+                        "  • Verify your API key at: https://platform.openai.com/api-keys\n"
+                        "  • Check Sora access in your account settings\n"
+                        "  • Join the waitlist if you don't have access yet"
+                    )
+                    raise RuntimeError(
+                        "OpenAI authentication failed. Invalid API key or no Sora access.\n"
+                        "Verify your key at https://platform.openai.com/api-keys"
+                    )
                 else:
                     self.logger.error(f"Unexpected API error: {e}")
                     raise RuntimeError(f"API Error: {e}")

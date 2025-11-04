@@ -36,6 +36,32 @@ class AzureSoraAPIClient:
         
         self.config = config
         self.logger = get_logger(__name__)
+        
+        # Validate Azure endpoint
+        if not config.azure_endpoint:
+            raise ValueError(
+                "AZURE_OPENAI_ENDPOINT not set. Get your endpoint from:\n"
+                "https://ai.azure.com/ (Azure AI Foundry)\n"
+                "Format: https://<resource-name>.openai.azure.com/"
+            )
+        
+        # Check for placeholder endpoint
+        if "your-resource-name" in config.azure_endpoint or config.azure_endpoint == "https://your-endpoint.openai.azure.com/":
+            raise ValueError(
+                f"AZURE_OPENAI_ENDPOINT appears to be a placeholder: '{config.azure_endpoint}'\n"
+                "Replace it with your actual Azure OpenAI endpoint from:\n"
+                "https://ai.azure.com/"
+            )
+        
+        # Validate API key if provided
+        if config.api_key:
+            if config.api_key in ("your_azure_api_key_here", "your_api_key_here"):
+                raise ValueError(
+                    f"AZURE_OPENAI_API_KEY appears to be a placeholder: '{config.api_key}'\n"
+                    "Replace it with your actual API key from Azure portal,\n"
+                    "or remove it to use Azure CLI authentication (az login)"
+                )
+        
         self.client = AzureOpenAI(
             api_key=config.api_key,
             azure_endpoint=config.azure_endpoint,
@@ -135,10 +161,20 @@ class AzureSoraAPIClient:
                 "3. Visit https://ai.azure.com/ to manage your deployments"
             )
         elif "401" in error_str or "unauthorized" in error_str.lower():
-            self.logger.error("Azure API key is invalid or unauthorized")
+            self.logger.error(
+                "Authentication failed (401 Unauthorized). This usually means:\n"
+                "  1. AZURE_OPENAI_API_KEY is invalid or expired\n"
+                "  2. Azure CLI not authenticated (if not using API key)\n"
+                "  3. Missing permissions on the Azure OpenAI resource\n\n"
+                "Solutions:\n"
+                "  • Verify API key in Azure portal: https://portal.azure.com/\n"
+                "  • Or authenticate Azure CLI: az login\n"
+                "  • Check you have 'Cognitive Services User' role on the resource\n"
+                "  • Verify resource exists: https://ai.azure.com/"
+            )
             raise RuntimeError(
-                "Azure API key is invalid or you don't have access to the Sora deployment.\n"
-                "Check your AZURE_OPENAI_API_KEY and ensure you have proper permissions."
+                "Azure authentication failed. Invalid API key or insufficient permissions.\n"
+                "Check your AZURE_OPENAI_API_KEY or run: az login"
             )
         elif "403" in error_str or "forbidden" in error_str.lower():
             self.logger.error("Access forbidden - check Azure permissions")

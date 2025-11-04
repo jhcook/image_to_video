@@ -37,6 +37,22 @@ class RunwayVeoClient:
         self.api_key = config.api_key
         self.base_url = config.base_url
 
+        # Validate API key
+        if not self.api_key:
+            raise ValueError(
+                "RUNWAY_API_KEY not set. Get your API key from:\n"
+                "https://app.runwayml.com/settings/api-keys\n"
+                "and set it in your .env file: RUNWAY_API_KEY=your_actual_key"
+            )
+        
+        # Check for placeholder values
+        if self.api_key in ("your_runway_api_key_here", "your_api_key_here", "sk-..."):
+            raise ValueError(
+                f"RUNWAY_API_KEY appears to be a placeholder: '{self.api_key}'\n"
+                "Replace it with your actual API key from:\n"
+                "https://app.runwayml.com/settings/api-keys"
+            )
+
         # Default retry settings
         self.max_retries = float('inf')  # Retry indefinitely
         self.base_delay = config.retry_base_delay
@@ -176,6 +192,23 @@ class RunwayVeoClient:
                     timeout=30
                 )
 
+                if response.status_code == 401:
+                    self.logger.error(
+                        "Authentication failed (401 Unauthorized). This usually means:\n"
+                        "  1. RUNWAY_API_KEY is not set or invalid\n"
+                        "  2. API key is a placeholder value like 'your_runway_api_key_here'\n"
+                        "  3. API key doesn't have access to Veo models\n\n"
+                        "Solutions:\n"
+                        "  • Get your API key from: https://app.runwayml.com/settings/api-keys\n"
+                        "  • Set it in .env: RUNWAY_API_KEY=your_actual_key\n"
+                        "  • Verify the key has model access in your RunwayML account"
+                    )
+                    raise RuntimeError(
+                        "RunwayML authentication failed. Invalid or missing API key.\n"
+                        "Get your key from https://app.runwayml.com/settings/api-keys\n"
+                        "and set RUNWAY_API_KEY in your .env file."
+                    )
+
                 if response.status_code in (429, 503):
                     self.logger.warning(
                         f"Rate limited or service unavailable ({response.status_code}), retrying..."
@@ -188,6 +221,27 @@ class RunwayVeoClient:
                 task_response = response.json()
                 self.logger.info(f"RunwayML task created: {task_response.get('id', 'unknown')}")
                 return task_response
+
+            except requests.exceptions.SSLError as e:
+                # Handle SSL certificate verification errors gracefully
+                error_msg = str(e)
+                if "CERTIFICATE_VERIFY_FAILED" in error_msg:
+                    self.logger.error(
+                        "SSL certificate verification failed. This is usually caused by:\n"
+                        "  1. Corporate firewall/proxy intercepting SSL connections\n"
+                        "  2. Missing or outdated system CA certificates\n"
+                        "  3. Antivirus software interfering with SSL\n\n"
+                        "Quick fixes:\n"
+                        "  • Update certificates: 'pip install --upgrade certifi'\n"
+                        "  • On macOS: '/Applications/Python 3.x/Install Certificates.command'\n"
+                        "  • Corporate network: Contact IT for root certificate\n\n"
+                        "For detailed troubleshooting, see: docs/technical/ssl-troubleshooting.md"
+                    )
+                raise RuntimeError(
+                    f"SSL certificate verification failed. Cannot connect to RunwayML API.\n"
+                    f"See logs for troubleshooting steps or docs/technical/ssl-troubleshooting.md\n"
+                    f"Original error: {error_msg}"
+                )
 
             except requests.exceptions.Timeout:
                 self.logger.warning("Request timeout, retrying...")
@@ -255,6 +309,21 @@ class RunwayVeoClient:
                 time.sleep(poll_interval)
                 continue
 
+            except requests.exceptions.SSLError as e:
+                error_msg = str(e)
+                if "CERTIFICATE_VERIFY_FAILED" in error_msg:
+                    self.logger.error(
+                        "SSL certificate verification failed during polling. "
+                        "See earlier logs for troubleshooting steps."
+                    )
+                    raise RuntimeError(
+                        f"SSL certificate verification failed. Cannot poll RunwayML task.\n"
+                        f"Original error: {error_msg}"
+                    )
+                # Other SSL errors, retry
+                time.sleep(poll_interval)
+                continue
+
             except requests.exceptions.RequestException:
                 time.sleep(poll_interval)
                 continue
@@ -269,15 +338,35 @@ class RunwayVeoClient:
 
         Returns:
             Path to saved video file
+
+        Raises:
+            RuntimeError: If download fails including SSL errors
         """
-        response = requests.get(url, stream=True, timeout=60)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, stream=True, timeout=60)
+            response.raise_for_status()
 
-        with open(output_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+            with open(output_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
-        return output_path
+            return output_path
+
+        except requests.exceptions.SSLError as e:
+            error_msg = str(e)
+            if "CERTIFICATE_VERIFY_FAILED" in error_msg:
+                self.logger.error(
+                    "SSL certificate verification failed during video download. "
+                    "See earlier logs for troubleshooting steps."
+                )
+                raise RuntimeError(
+                    f"SSL certificate verification failed. Cannot download video.\n"
+                    f"Original error: {error_msg}"
+                )
+            raise RuntimeError(f"SSL error downloading video: {error_msg}")
+
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Failed to download video: {e}")
 
     def generate_video(
         self,
