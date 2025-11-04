@@ -1,54 +1,79 @@
 #!/usr/bin/env bash
-# walkthrough_and_stitch.sh — Veo 3.1 multi-clip walkthrough using our CLI
 #
-# What this does
-# - Authenticates to Google (optional inline)
-# - Generates 6 seamless clips with Veo 3.1 stitching using --stitch and -p
-# - Uses your reference images for every clip (-i supports wildcards and lists)
-# - Concatenates the resulting clips into a final MP4 without re-encoding
+# walkthrough_and_stitch.sh — Generate seamless multi-clip videos with Veo 3.1
 #
-# Prereqs
-# - ffmpeg installed and on PATH
-# - .env configured with GOOGLE_CLOUD_PROJECT (and optionally others)
-# - Google auth: either run with --google-login once per hour, or export GOOGLE_API_KEY
+# Description:
+#   Generates multiple video clips with automatic frame stitching using Google Veo 3.1.
+#   Each clip's last frame becomes the first frame of the next clip for seamless transitions.
+#
+# Features:
+#   - Automated Google authentication (optional)
+#   - Multiple clips from individual prompts (--stitch mode)
+#   - Reference image support (wildcards and paths)
+#   - Rate limit avoidance with configurable delays
+#   - Automatic concatenation into final video
+#
+# Prerequisites:
+#   - ffmpeg (for video concatenation)
+#   - .env file with GOOGLE_CLOUD_PROJECT configured
+#   - Google authentication (via --google-login or GOOGLE_API_KEY)
+#
+# Usage:
+#   # First time (with inline authentication)
+#   GOOGLE_LOGIN=1 ./walkthrough_and_stitch.sh
+#
+#   # Subsequent runs (token valid ~1 hour)
+#   ./walkthrough_and_stitch.sh
+#
+#   # Custom settings
+#   WIDTH=1920 HEIGHT=1080 DURATION=10 ./walkthrough_and_stitch.sh
 
 set -euo pipefail
 
-# -------- Configuration --------
+#==============================================================================
+# Configuration
+#==============================================================================
 
-# Reference images (use wildcards or list multiple). Up to 3 images recommended for Veo.
+# Reference images (supports wildcards and multiple paths)
+# Up to 3 images recommended for optimal Veo performance
 IMAGES=(
   "foyer/*.png"
   "living/*.png"
   "kitchen/*.png"
 )
 
-# Output settings per clip
+# Video output settings (per clip)
 WIDTH=${WIDTH:-1280}
 HEIGHT=${HEIGHT:-720}
-DURATION=${DURATION:-7}   # seconds per clip
+DURATION=${DURATION:-7}  # seconds per clip
 FPS=${FPS:-24}
-SEED=${SEED:-}            # optional; leave empty for random
+SEED=${SEED:-}           # optional seed for reproducibility
 
-# Veo 3.1 model
+# Veo 3.1 model selection
+# Options: veo-3.1-fast-generate-preview (fast), veo-3.1-generate-preview (quality)
 MODEL=${MODEL:-veo-3.1-fast-generate-preview}
 
-# Optional: authenticate inline. Set to 1 to force browser/gcloud auth as part of this run.
-GOOGLE_LOGIN=${GOOGLE_LOGIN:-0}         # 1 to enable, 0 to skip
-GOOGLE_LOGIN_BROWSER=${GOOGLE_LOGIN_BROWSER:-0} # 1 to force browser OAuth
+# Authentication options
+GOOGLE_LOGIN=${GOOGLE_LOGIN:-0}         # Set to 1 to authenticate via gcloud/browser
+GOOGLE_LOGIN_BROWSER=${GOOGLE_LOGIN_BROWSER:-0}  # Set to 1 to force browser OAuth
 
-# Delay between clips to avoid rate limits (seconds). 10–30 recommended for longer runs.
-DELAY=${DELAY:-20}
+# Rate limiting
+DELAY=${DELAY:-20}  # seconds between clips (10-30 recommended to avoid 429 errors)
 
-# Final output
+# Output file
 FINAL_OUTPUT=${FINAL_OUTPUT:-lower_ground_walkthrough.mp4}
 
-# -------- Prompts (one per clip) --------
+#==============================================================================
+# Prompts (one per clip)
+#==============================================================================
+
+# Common scene setup applied to all clips
 COMMON_PREFIX="You are rendering a smooth, cinematic walkthrough of the lower ground floor. \
 Scene setup: Focal length ~24–28mm, indoor LED lighting, stable exposure and white balance, \
 handheld but stabilized. Keep floorboards, stair rail, cat tree, dining set, and curtains consistent. \
 No added text, logos, or people."
 
+# Individual camera movements for each clip
 PROMPTS=(
   "Start on foyer pictures. SLOW pan to show the balcony/void. HOLD 2s. Then TILT DOWN and PAN LEFT to the stairs and a window with shutters. HOLD 2s."
   "DOLLY FORWARD five steps into the living area. PAN LEFT to show the sofas and wall-mounted television. HOLD 3s."
@@ -58,64 +83,94 @@ PROMPTS=(
   "PAN LEFT to the window with the narrow bar and two stools. HOLD 3s."
 )
 
-# -------- Helpers --------
-need_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "❌ Missing dependency: $1"; exit 1; }; }
-join_by() { local IFS="$1"; shift; echo "$*"; }
+#==============================================================================
+# Helper Functions
+#==============================================================================
 
-# -------- Checks --------
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "❌ Missing dependency: $1"
+    echo "   Please install $1 and ensure it's on your PATH"
+    exit 1
+  }
+}
+
+#==============================================================================
+# Preflight Checks
+#==============================================================================
+
+# Verify required dependencies
 need_cmd ffmpeg
 need_cmd ./image2video.py
 
-# Expand image globs safely into a list of image paths
+#==============================================================================
+# Image Processing
+#==============================================================================
+
+# Expand image glob patterns safely
 EXPANDED_IMAGES=()
 for pat in "${IMAGES[@]}"; do
-  # Allow empty expansions to be skipped
-  shopt -s nullglob
-  for f in $pat; do EXPANDED_IMAGES+=("$f"); done
+  shopt -s nullglob  # Allow empty expansions
+  for f in $pat; do
+    EXPANDED_IMAGES+=("$f")
+  done
   shopt -u nullglob
 done
 
+# Warn if no images found
 if [[ ${#EXPANDED_IMAGES[@]} -eq 0 ]]; then
   echo "⚠️  No reference images found for patterns: ${IMAGES[*]}"
   echo "    Proceeding with text-only stitching."
 fi
 
-# Build -i list only if we have images (each file is a separate arg)
+#==============================================================================
+# Build CLI Arguments
+#==============================================================================
+
+# Image arguments (-i file1 file2 ...)
 IMAGE_ARGS=()
 if [[ ${#EXPANDED_IMAGES[@]} -gt 0 ]]; then
-  IMAGE_ARGS=( -i )
+  IMAGE_ARGS=(-i)
   for f in "${EXPANDED_IMAGES[@]}"; do
     IMAGE_ARGS+=("$f")
   done
 fi
 
-# Build -p list from PROMPTS (prepend common prefix to each)
-PROMPT_ARGS=( -p )
+# Prompt arguments (-p "prompt1" "prompt2" ...)
+PROMPT_ARGS=(-p)
 for p in "${PROMPTS[@]}"; do
   PROMPT_ARGS+=("${COMMON_PREFIX} Camera sequence: ${p}")
 done
 
-# Optional Google login
+# Authentication flags
 GOOGLE_LOGIN_FLAGS=()
 if [[ "$GOOGLE_LOGIN" == "1" ]]; then
   if [[ "$GOOGLE_LOGIN_BROWSER" == "1" ]]; then
-    GOOGLE_LOGIN_FLAGS+=( --google-login-browser )
+    GOOGLE_LOGIN_FLAGS+=(--google-login-browser)
   else
-    GOOGLE_LOGIN_FLAGS+=( --google-login )
+    GOOGLE_LOGIN_FLAGS+=(--google-login)
   fi
 fi
 
+#==============================================================================
+# Generate Video Clips
+#==============================================================================
+
 echo "🎬 Generating ${#PROMPTS[@]} stitched clips with Veo 3.1"
-echo "   Model: ${MODEL}"
-echo "   Size:  ${WIDTH}x${HEIGHT} @ ${FPS}fps, ${DURATION}s per clip"
+echo "   Model:     ${MODEL}"
+echo "   Size:      ${WIDTH}x${HEIGHT} @ ${FPS}fps"
+echo "   Duration:  ${DURATION}s per clip"
+echo "   Delay:     ${DELAY}s between clips"
+
 if [[ ${#EXPANDED_IMAGES[@]} -gt 0 ]]; then
-  echo "   Using ${#EXPANDED_IMAGES[@]} reference image(s) for each clip"
+  echo "   Images:    ${#EXPANDED_IMAGES[@]} reference image(s) per clip"
 else
-  echo "   No reference images"
+  echo "   Images:    Text-only (no reference images)"
 fi
 echo
 
-# Run stitching in one command; CLI will output veo3_clip_1.mp4, veo3_clip_2.mp4, ...
+# Generate all clips with automatic frame stitching
+# Output files: veo3_clip_1.mp4, veo3_clip_2.mp4, ...
 ./image2video.py \
   --backend veo3 \
   --model "${MODEL}" \
@@ -123,31 +178,43 @@ echo
   "${GOOGLE_LOGIN_FLAGS[@]}" \
   "${IMAGE_ARGS[@]}" \
   "${PROMPT_ARGS[@]}" \
-  --width "${WIDTH}" --height "${HEIGHT}" \
-  --fps "${FPS}" --duration "${DURATION}" \
+  --width "${WIDTH}" \
+  --height "${HEIGHT}" \
+  --fps "${FPS}" \
+  --duration "${DURATION}" \
   ${SEED:+--seed "$SEED"} \
   --delay "${DELAY}"
 
-echo
-echo "📼 Concatenating clips..."
+#==============================================================================
+# Concatenate Clips
+#==============================================================================
 
-# Build the concat list from the expected default filenames
+echo
+echo "📼 Concatenating ${#PROMPTS[@]} clips into final video..."
+
+# Build list of expected clip files
 CLIP_FILES=()
 for i in $(seq 1 ${#PROMPTS[@]}); do
   CLIP_FILES+=("veo3_clip_${i}.mp4")
 done
 
-# Write concat file for ffmpeg
-CONCAT_FILE=concat.txt
+# Create ffmpeg concat file
+CONCAT_FILE="concat.txt"
 : > "$CONCAT_FILE"
+
 for f in "${CLIP_FILES[@]}"; do
-  if [[ -f "$f" ]]; then
-    printf "file '%s'\n" "$f" >> "$CONCAT_FILE"
-  else
-    echo "❌ Missing expected clip: $f" >&2
+  if [[ ! -f "$f" ]]; then
+    echo "❌ Error: Missing expected clip file: $f" >&2
+    echo "   Clip generation may have failed. Check logs for errors." >&2
     exit 1
   fi
+  printf "file '%s'\n" "$f" >> "$CONCAT_FILE"
 done
 
-ffmpeg -y -f concat -safe 0 -i "$CONCAT_FILE" -c copy "$FINAL_OUTPUT"
-echo "✅ Render complete: $FINAL_OUTPUT"
+# Concatenate without re-encoding (fast)
+echo "   Using concat demuxer (no re-encoding)..."
+ffmpeg -y -f concat -safe 0 -i "$CONCAT_FILE" -c copy "$FINAL_OUTPUT" 2>&1 | grep -v "^frame="
+
+echo
+echo "✅ Success! Final video: $FINAL_OUTPUT"
+echo "   Individual clips: ${CLIP_FILES[*]}"
