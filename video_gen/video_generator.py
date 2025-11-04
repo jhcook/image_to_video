@@ -875,6 +875,7 @@ def generate_video_with_runway_veo(
     # Step 3: Initialize API client and generate video
     api_client = RunwayVeoClient(config)
     
+    # Note: RunwayML Veo models don't support seed parameter
     return api_client.generate_video(
         prompt=prompt,
         first_frame=first_frame,
@@ -883,6 +884,5 @@ def generate_video_with_runway_veo(
         height=height,
         duration=duration_seconds,
         output_path=out_path,
-        model=selected_model,
-        seed=seed  # Note: Veo models don't support seed, will be ignored
+        model=selected_model
     )
