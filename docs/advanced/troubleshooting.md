@@ -5,6 +5,7 @@ Common issues and fixes for the Multi-Backend Video Generator.
 - If you're new, first try the 5-minute guide: quick-start.md
 - For setup problems, see installation.md
 - For auth errors, see reference/authentication.md
+- **For SSL certificate errors, see [SSL Troubleshooting](../technical/ssl-troubleshooting.md)**
 
 ## Quick Checklist
 

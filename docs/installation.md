@@ -383,9 +383,10 @@ rm -rf image_to_video
 If you encounter issues during installation:
 
 1. Check the **[Troubleshooting Guide](advanced/troubleshooting.md)**
-2. Verify all prerequisites are met
-3. Review the logs: `cat logs/video_gen.log`
-4. Ensure API keys are correctly configured
+2. For SSL certificate errors, see **[SSL Troubleshooting](technical/ssl-troubleshooting.md)**
+3. Verify all prerequisites are met
+4. Review the logs: `cat logs/video_gen.log`
+5. Ensure API keys are correctly configured
 
 ---
 
