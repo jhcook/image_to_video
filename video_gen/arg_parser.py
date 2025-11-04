@@ -76,6 +76,8 @@ class SoraArgumentParser:
         if len(result['prompts']) == 1:
             result['prompt'] = result['prompts'][0]
             self._validate_prompt_not_empty(result['prompt'])
+            # Normalize: clear prompts when using single prompt in non-stitch mode
+            result['prompts'] = []
         elif len(result['prompts']) > 1:
             raise ValueError(f"Multiple prompts require --stitch mode.\nFound {len(result['prompts'])} prompts but --stitch not enabled.\nTip: Add --stitch flag or use only one -p argument")
     
@@ -103,6 +105,7 @@ class SoraArgumentParser:
             'model': None,
             'output': None,
             'stitch': False,
+            'resume': False,
             'delay': 10,
             'out-paths': [],
             'google-login': False,
@@ -145,6 +148,7 @@ class SoraArgumentParser:
         """Handle boolean flag arguments."""
         boolean_flags = {
             '--stitch': 'stitch',
+            '--resume': 'resume',
             '--google-login': 'google-login',
             '--google-login-browser': 'google-login-browser',
             '--google-clear-cache': 'google-clear-cache'
@@ -356,6 +360,9 @@ Veo 3.1 Stitching Mode (Multi-Clip):
   --stitch              Enable seamless multi-clip stitching (Veo 3.1 only)
                         Requires 2+ prompts via -p and --backend veo3
                         Example: --stitch -p 'Clip 1' 'Clip 2' 'Clip 3'
+  --resume              Resume stitching from where it left off (skips existing clips)
+                        Useful when generation was interrupted or credits ran out
+                        Automatically detects completed clips and continues from next
   --delay SECONDS       Seconds to wait between generating clips (default: 10)
                         Helps avoid rate limiting. Set to 0 to disable.
                         Recommended: 10-30 seconds for heavy use

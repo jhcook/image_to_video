@@ -52,7 +52,8 @@ def generate_video_sequence_with_veo3_stitching(
     config=None,
     model=None,
     delay_between_clips=10,
-    backend="veo3"
+    backend="veo3",
+    resume=False
 ):
     """
     Generate a sequence of Veo 3.1 video clips with seamless frame transitions.
@@ -131,8 +132,43 @@ def generate_video_sequence_with_veo3_stitching(
     
     outputs = []
     last_frame_path = None
+
+    # Optional resume support: if resume=True, detect existing outputs and skip them
+    if resume:
+        # Precompute expected out paths
+        expected_paths = []
+        for idx in range(len(prompts)):
+            # Determine expected out_path for each clip without side effects
+            if out_paths:
+                expected_paths.append(out_paths[idx])
+            else:
+                prefix = "veo3" if backend == "veo3" else "runway_veo"
+                expected_paths.append(f"{prefix}_clip_{idx + 1}.mp4")
+
+        # Walk existing outputs
+        from pathlib import Path as _Path
+        last_done = -1
+        for idx, p in enumerate(expected_paths):
+            if _Path(p).exists() and _Path(p).stat().st_size > 0:
+                outputs.append(p)
+                last_done = idx
+            else:
+                break
+
+        # If we have any done clips, set last_frame_path from the last one
+        if last_done >= 0:
+            try:
+                last_frame_path = extract_last_frame_as_png(expected_paths[last_done])
+            except Exception:
+                # If extraction fails, fallback to no resume frame and re-generate from next
+                last_frame_path = None
+        # Advance start index
+        start_idx = last_done + 1
+    else:
+        start_idx = 0
     
-    for idx, prompt in enumerate(prompts):
+    for idx in range(start_idx, len(prompts)):
+        prompt = prompts[idx]
         reference_images, source_frame, out_path = _veo3_prepare_clip_params(
             idx, file_paths_list, last_frame_path, out_paths, backend
         )

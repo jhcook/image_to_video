@@ -368,6 +368,7 @@ def _run_stitching_mode(args, config, file_paths, backend):
     # Intelligently distribute images among clips based on filename patterns
     file_paths_list = _distribute_images_to_clips(file_paths, prompts) if file_paths else None
     out_paths = args.get("out_paths")
+    resume = args.get("resume", False)
     
     # Determine provider name for display
     provider_name = "Google Veo 3.1" if backend == "veo3" else f"RunwayML {model}"
@@ -377,6 +378,8 @@ def _run_stitching_mode(args, config, file_paths, backend):
     print(f"   Model: {model}")
     print(f"   Each clip: {args['width']}x{args['height']}, {args['duration']}s")
     print(f"   Reference images: {len(file_paths)} per clip" if file_paths else "   No reference images")
+    if resume:
+        print("   Resume: ✅ Enabled (will skip existing clips)")
     print("\n📝 Prompts:")
     for i, p in enumerate(prompts, 1):
         print(f"   {i}. {p[:80]}{'...' if len(p) > 80 else ''}")
@@ -393,7 +396,8 @@ def _run_stitching_mode(args, config, file_paths, backend):
         config=config,
         model=model,
         delay_between_clips=args["delay"],
-        backend=backend
+        backend=backend,
+        resume=resume
     )
     print("=" * 50)
     print(f"🎉 Success! {len(outputs)} stitched clips generated:")
