@@ -13,7 +13,7 @@ A Python application that converts images to videos using multiple AI backends: 
 
 ## Quick Start
 
-\`\`\`bash
+```bash
 # Install dependencies
 pip install -r requirements.txt
 
@@ -30,7 +30,7 @@ export RUNWAY_API_KEY="your-key"      # For RunwayML
 
 # Choose a backend
 ./image2video.py --backend runway "Your prompt"
-\`\`\`
+```
 
 ## Documentation
 
@@ -69,27 +69,27 @@ See **[Backend Comparison](docs/reference/backend-comparison.md)** for detailed 
 ## Usage Examples
 
 ### Basic Text-to-Video
-\`\`\`bash
+```bash
 ./image2video.py "A serene lake at dawn with mist rising"
-\`\`\`
+```
 
 ### Image-to-Video
-\`\`\`bash
+```bash
 ./image2video.py -i "landscape.jpg" "Time-lapse of this scene at sunset"
-\`\`\`
+```
 
 ### Multiple Images
-\`\`\`bash
+```bash
 ./image2video.py -i "img1.jpg,img2.jpg,img3.jpg" "Tour of these locations"
-\`\`\`
+```
 
 ### Wildcard Patterns
-\`\`\`bash
+```bash
 ./image2video.py -i "photos/*.jpg" "Create a walkthrough video"
-\`\`\`
+```
 
 ### Backend Selection
-\`\`\`bash
+```bash
 # Use Google Veo
 ./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview "Your prompt"
 
@@ -98,16 +98,16 @@ See **[Backend Comparison](docs/reference/backend-comparison.md)** for detailed 
 
 # Use Azure Sora
 ./image2video.py --backend azure-sora "Your prompt"
-\`\`\`
+```
 
 ### Seamless Multi-Clip Stitching (Veo 3.1)
-\`\`\`bash
+```bash
 ./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \\
   -i reference_images/*.jpg \\
   -p "Camera pans across the foyer" \\
      "Dolly forward into the living room" \\
      "Pan right to show the kitchen"
-\`\`\`
+```
 
 ## Installation
 
@@ -116,7 +116,7 @@ See **[Backend Comparison](docs/reference/backend-comparison.md)** for detailed 
 - ffmpeg (for video processing)
 
 ### Setup
-\`\`\`bash
+```bash
 # Clone or download the repository
 git clone <repository-url>
 cd image_to_video
@@ -131,7 +131,7 @@ pip install -r requirements.txt
 # Configure API keys
 cp .env.example .env
 # Edit .env with your API keys
-\`\`\`
+```
 
 See **[Installation Guide](docs/installation.md)** for detailed instructions.
 
@@ -140,18 +140,18 @@ See **[Installation Guide](docs/installation.md)** for detailed instructions.
 Each backend requires different authentication:
 
 ### OpenAI Sora
-\`\`\`bash
+```bash
 export OPENAI_API_KEY="your-api-key"
-\`\`\`
+```
 
 ### Azure Sora
-\`\`\`bash
+```bash
 export AZURE_OPENAI_API_KEY="your-key"
 export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
-\`\`\`
+```
 
 ### Google Veo
-\`\`\`bash
+```bash
 # Browser OAuth (easiest)
 ./image2video.py --backend veo3 --google-login
 
@@ -159,18 +159,18 @@ export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
 gcloud auth application-default login
 export GOOGLE_API_KEY="\$(gcloud auth application-default print-access-token)"
 export GOOGLE_CLOUD_PROJECT="your-project-id"
-\`\`\`
+```
 
 ### RunwayML
-\`\`\`bash
+```bash
 export RUNWAY_API_KEY="your-api-key"
-\`\`\`
+```
 
 See **[Authentication Guide](docs/reference/authentication.md)** for complete details.
 
 ## Project Structure
 
-\`\`\`
+```
 image_to_video/
 ├── image2video.py              # Main CLI entry point
 ├── image2video_mono.py         # Legacy monolithic script (Sora-2 only)
@@ -197,12 +197,12 @@ image_to_video/
         ├── azure_provider/    # Azure Sora
         ├── google_provider/   # Google Veo
         └── runway_provider/   # RunwayML Gen-4 & Veo
-\`\`\`
+```
 
 ## Development
 
 ### Running Tests
-\`\`\`bash
+```bash
 # Activate virtual environment
 source venv/bin/activate
 
@@ -211,7 +211,7 @@ python test_final.py
 
 # Test specific backend
 ./image2video.py --backend sora2 "Test prompt"
-\`\`\`
+```
 
 ### Contributing
 We welcome contributions! See the **[Development Guide](docs/technical/development.md)** for:
@@ -225,23 +225,23 @@ We welcome contributions! See the **[Development Guide](docs/technical/developme
 Common issues and solutions:
 
 **"No images provided" error**
-\`\`\`bash
+```bash
 # Use -i flag before image paths
 ./image2video.py -i "images/*.jpg" "Your prompt"
-\`\`\`
+```
 
 **API key not found**
-\`\`\`bash
+```bash
 # Verify environment variables are set
 echo \$OPENAI_API_KEY
 echo \$RUNWAY_API_KEY
-\`\`\`
+```
 
 **Google Veo authentication issues**
-\`\`\`bash
+```bash
 # Use browser OAuth (easiest method)
 ./image2video.py --backend veo3 --google-login
-\`\`\`
+```
 
 See **[Troubleshooting Guide](docs/advanced/troubleshooting.md)** for complete solutions.
 
