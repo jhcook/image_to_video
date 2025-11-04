@@ -1,0 +1,5 @@
+python-dotenv
+openai
+requests  # Required for Veo-3 and RunwayML backends
+google-auth
+google-auth-oauthlib
