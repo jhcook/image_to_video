@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 from typing import List, Optional
+from .exceptions import InsufficientCreditsError
 
 def extract_last_frame_as_png(video_path: str, output_dir: str = None) -> str:
     """
@@ -29,10 +30,10 @@ def extract_last_frame_as_png(video_path: str, output_dir: str = None) -> str:
     if output_dir is None:
         output_dir = tempfile.gettempdir()
     output_png = str(Path(output_dir) / (Path(video_path).stem + "_last.png"))
+    # Use simpler approach: just extract the last frame
     cmd = [
-        "ffmpeg", "-y", "-i", str(video_path),
-        "-vf", r"select=eq(n\\,prev_n+1)",
-        "-vframes", "1",
+        "ffmpeg", "-y", "-sseof", "-1", "-i", str(video_path),
+        "-update", "1", "-q:v", "1",
         output_png
     ]
     try:
@@ -138,32 +139,43 @@ def generate_video_sequence_with_veo3_stitching(
         _veo3_log_clip(logger, idx, len(prompts), reference_images, source_frame)
 
         # Generate video with the appropriate backend
-        if backend == "veo3":
-            video_path = generate_video_with_veo3(
-                prompt=prompt,
-                file_paths=reference_images,
-                source_frame=source_frame,
-                width=width,
-                height=height,
-                duration_seconds=duration_seconds,
-                seed=seed,
-                out_path=out_path,
-                config=config,
-                model=model
+        try:
+            if backend == "veo3":
+                video_path = generate_video_with_veo3(
+                    prompt=prompt,
+                    file_paths=reference_images,
+                    source_frame=source_frame,
+                    width=width,
+                    height=height,
+                    duration_seconds=duration_seconds,
+                    seed=seed,
+                    out_path=out_path,
+                    config=config,
+                    model=model
+                )
+            else:  # runway
+                video_path = generate_video_with_runway_veo(
+                    prompt=prompt,
+                    reference_images=reference_images,
+                    first_frame=source_frame,
+                    width=width,
+                    height=height,
+                    duration_seconds=duration_seconds,
+                    seed=seed,
+                    out_path=out_path,
+                    config=config,
+                    model=model
+                )
+        except InsufficientCreditsError as e:
+            # Stop gracefully and return any clips generated so far
+            logger.error(
+                "Stopping stitching due to insufficient RunwayML credits after clip %d/%d.\n%s",
+                idx + 1,
+                len(prompts),
+                str(e)
             )
-        else:  # runway
-            video_path = generate_video_with_runway_veo(
-                prompt=prompt,
-                reference_images=reference_images,
-                first_frame=source_frame,
-                width=width,
-                height=height,
-                duration_seconds=duration_seconds,
-                seed=seed,
-                out_path=out_path,
-                config=config,
-                model=model
-            )
+            # Return what we have so far
+            return outputs
         
         outputs.append(video_path)
         last_frame_path = extract_last_frame_as_png(video_path)

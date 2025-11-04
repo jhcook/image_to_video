@@ -53,3 +53,15 @@ class ConfigurationError(VideoGenerationError):
 class ValidationError(VideoGenerationError):
     """Exception for validation errors."""
     pass
+
+
+class InsufficientCreditsError(APIError):
+    """Exception for provider billing/credit exhaustion.
+
+    Raised when a provider indicates the account does not have enough credits
+    to perform the requested operation. Treat as non-retryable until user adds
+    credits or switches provider/model.
+    """
+    def __init__(self, message: str = "Insufficient credits", provider: str | None = None):
+        self.provider = provider
+        super().__init__(message)

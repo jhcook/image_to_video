@@ -16,6 +16,7 @@ except ImportError:
     requests = None
 
 from .config import RunwayConfig
+from ...exceptions import InsufficientCreditsError
 from ...logger import get_library_logger
 
 
@@ -73,33 +74,97 @@ class RunwayGen4Client:
             "X-Runway-Version": "2024-11-06"
         }
 
-    def _encode_image_to_base64(self, image_path: str) -> str:
+    def _encode_image_to_base64(self, image_path: str, max_size_kb: int = 800) -> str:
         """
-        Encode an image file to base64 data URI.
+        Encode an image file to base64 data URI with automatic compression.
+        
+        Images are compressed/resized if they exceed max_size_kb to avoid
+        413 "Request Too Large" errors from the API.
 
         Args:
             image_path: Path to the image file
+            max_size_kb: Maximum size in KB before compression (default: 800KB)
 
         Returns:
             Base64 encoded data URI string
         """
         import mimetypes
+        from io import BytesIO
+        
+        try:
+            from PIL import Image
+        except ImportError:
+            Image = None
 
         path = Path(image_path)
         if not path.exists():
             raise FileNotFoundError(f"Image file not found: {image_path}")
 
-        # Guess MIME type
-        mime_type, _ = mimetypes.guess_type(str(path))
-        if not mime_type or not mime_type.startswith('image/'):
-            mime_type = 'image/png'  # Default to PNG
-
-        # Read and encode image
-        with open(path, 'rb') as f:
-            image_data = f.read()
-
-        encoded = base64.b64encode(image_data).decode('utf-8')
-        return f"data:{mime_type};base64,{encoded}"
+        # Check original file size
+        original_size_kb = path.stat().st_size / 1024
+        
+        # If file is small enough and we have PIL, or we don't have PIL, use original
+        if original_size_kb <= max_size_kb or Image is None:
+            if original_size_kb > max_size_kb and Image is None:
+                self.logger.warning(
+                    f"Image {path.name} is {original_size_kb:.0f}KB (>{max_size_kb}KB) "
+                    "but PIL not available for compression. Install: pip install pillow"
+                )
+            
+            # Read and encode original image
+            mime_type, _ = mimetypes.guess_type(str(path))
+            if not mime_type or not mime_type.startswith('image/'):
+                mime_type = 'image/jpeg'  # Default to JPEG for better compression
+            
+            with open(path, 'rb') as f:
+                image_data = f.read()
+            
+            encoded = base64.b64encode(image_data).decode('utf-8')
+            return f"data:{mime_type};base64,{encoded}"
+        
+        # Compress image using PIL
+        self.logger.debug(
+            f"Compressing {path.name} ({original_size_kb:.0f}KB) to under {max_size_kb}KB"
+        )
+        
+        img = Image.open(path)
+        
+        # Convert RGBA to RGB if necessary
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        
+        # Try different quality levels until we get under max_size_kb
+        for quality in [85, 75, 65, 55, 45]:
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=quality, optimize=True)
+            compressed_size_kb = len(buffer.getvalue()) / 1024
+            
+            if compressed_size_kb <= max_size_kb:
+                self.logger.info(
+                    f"Compressed {path.name}: {original_size_kb:.0f}KB → {compressed_size_kb:.0f}KB "
+                    f"(quality={quality})"
+                )
+                encoded = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                return f"data:image/jpeg;base64,{encoded}"
+        
+        # If still too large, resize and try again
+        self.logger.warning(f"Resizing {path.name} to reduce size further")
+        img.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
+        
+        buffer = BytesIO()
+        img.save(buffer, format='JPEG', quality=85, optimize=True)
+        final_size_kb = len(buffer.getvalue()) / 1024
+        
+        self.logger.info(
+            f"Resized and compressed {path.name}: {original_size_kb:.0f}KB → {final_size_kb:.0f}KB"
+        )
+        
+        encoded = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return f"data:image/jpeg;base64,{encoded}"
 
     def create_image_to_video_task(
         self,
@@ -133,6 +198,10 @@ class RunwayGen4Client:
         Raises:
             RuntimeError: If API request fails
         """
+        # Validate required parameters
+        if not prompt:
+            raise ValueError("Prompt is required for video generation")
+        
         self.logger.info(f"Creating RunwayML Gen-4 task: model={model}, {width}x{height}, {duration}s")
         self.logger.debug(f"Prompt: {prompt[:100]}...")
 
@@ -173,6 +242,35 @@ class RunwayGen4Client:
                     timeout=30
                 )
 
+                if response.status_code == 400:
+                    # Bad Request - show API error details
+                    try:
+                        error_data = response.json()
+                        error_message = error_data.get('error', error_data)
+                        self.logger.error(f"Bad Request (400): {error_message}")
+                    except Exception:
+                        self.logger.error(f"Bad Request (400): {response.text[:500]}")
+                    # Detect insufficient credits explicitly and bail out gracefully
+                    combined_text = " ".join([
+                        str(error_message).lower() if 'error_message' in locals() else "",
+                        response.text.lower() if response.text else ""
+                    ])
+                    if any(kw in combined_text for kw in ["not enough credit", "enough credits", "insufficient credits"]):
+                        raise InsufficientCreditsError(
+                            (
+                                "RunwayML: insufficient credits to create a Gen-4 task.\n"
+                                "Next steps:\n"
+                                "  • Add credits in your Runway account: https://app.runwayml.com/settings/billing\n"
+                                "  • Or reduce the number/length of clips and retry\n"
+                            ),
+                            provider="runway"
+                        )
+                    raise RuntimeError(
+                        f"RunwayML API rejected the request (400 Bad Request).\n"
+                        f"Error: {response.text[:500]}\n"
+                        "This usually means invalid parameters (width, height, duration, etc.)"
+                    )
+
                 if response.status_code == 401:
                     self.logger.error(
                         "Authentication failed (401 Unauthorized). This usually means:\n"
@@ -188,6 +286,21 @@ class RunwayGen4Client:
                         "RunwayML authentication failed. Invalid or missing API key.\n"
                         "Get your key from https://app.runwayml.com/settings/api-keys\n"
                         "and set RUNWAY_API_KEY in your .env file."
+                    )
+
+                if response.status_code == 413:
+                    self.logger.error(
+                        "Request too large (413). This usually means:\n"
+                        "  1. Source image is too large\n"
+                        "  2. Image needs to be compressed/resized before encoding\n"
+                        "  3. Prompt text is extremely long\n\n"
+                        "Solutions:\n"
+                        "  • Use smaller/compressed images (resize to max 1920x1080)\n"
+                        "  • Reduce prompt length"
+                    )
+                    raise RuntimeError(
+                        "RunwayML API rejected request: payload too large (413).\n"
+                        "Try using a smaller/compressed image."
                     )
 
                 if response.status_code in (429, 503):

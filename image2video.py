@@ -20,6 +20,10 @@ For detailed usage information, run:
     ./image2video.py --help
 """
 
+import re
+from collections import defaultdict
+from pathlib import Path
+
 import os
 import sys
 from pathlib import Path
@@ -192,6 +196,11 @@ def _route_to_workflow(args, config, file_paths):
     prompt = args['prompt']
     model = args.get('model')
     
+    # Resolve model from args or config default
+    if not model and backend == "runway":
+        # Get default model from config (which reads RUNWAY_MODEL env var)
+        model = getattr(config, 'default_model', None)
+    
     # Check if stitching mode is enabled
     # Support both veo3 backend and runway backend with veo models
     is_veo_model = (backend == "veo3") or (backend == "runway" and model and model.startswith("veo"))
@@ -241,6 +250,111 @@ def main():
         _handle_exceptions(e)
 
 
+def _distribute_images_to_clips(file_paths, prompts, image_groups_spec=None):
+    """
+    Intelligently distribute reference images among clips.
+    
+    Supports three methods:
+    1. Manual groups via spec (preferred): [[img1, img2], [img3, img4], ...]
+    2. Filename pattern matching: Groups by keywords in filenames
+    3. Prompt filename matching: Matches prompt filenames (fr_foyer1.txt) with image names
+    
+    Args:
+        file_paths: List of image file paths
+        prompts: List of prompt strings (one per clip) or list of tuples (prompt, filename)
+        image_groups_spec: Optional list of lists specifying exact image groups per clip
+        
+    Returns:
+        List of image lists, one per clip
+        
+    Examples:
+        # Method 1: Manual specification
+        --image-groups "foyer1.png,foyer2.png" "living1.png,living2.png" "kitchen1.png"
+        
+        # Method 2: Automatic keyword matching (filename-based)
+        Images: foyer1.png, living1.png, kitchen1.png
+        Auto-groups by: foyer*, living*, kitchen*
+        
+        # Method 3: Prompt filename matching
+        Prompts from: fr_foyer1.txt, fr_living1.txt
+        Matches images: foyer*.png, living*.png
+    """
+    if not file_paths or not prompts:
+        return None
+    
+    # Method 1: Manual specification (if provided)
+    if image_groups_spec:
+        return _validate_and_log_distribution(image_groups_spec, prompts)
+    
+    # Extract keywords from filenames for Methods 2 & 3
+    image_groups = defaultdict(list)
+    all_keywords = set()
+    
+    for img_path in file_paths:
+        filename = Path(img_path).stem.lower()
+        keyword = re.sub(r'\d+$', '', filename)  # Remove trailing numbers
+        
+        if keyword:
+            image_groups[keyword].append(img_path)
+            all_keywords.add(keyword)
+    
+    # Method 3: Try matching prompt filenames with image keywords
+    result = []
+    for prompt_item in prompts:
+        matched_images = []
+        
+        # Handle both string prompts and (prompt, filename) tuples
+        if isinstance(prompt_item, tuple):
+            prompt, prompt_filename = prompt_item
+            # Extract keyword from prompt filename (e.g., 'foyer' from 'fr_foyer1.txt')
+            # Supports patterns like: fr_foyer1, foyer_clip1, 01_foyer, etc.
+            prompt_keyword = re.search(r'(?:^|_)(foyer|living|kitchen|garage|bedroom|bathroom|dining|hallway|entry|stairs)', 
+                                      Path(prompt_filename).stem.lower())
+            if prompt_keyword:
+                keyword = prompt_keyword.group(1)
+                if keyword in image_groups:
+                    matched_images = image_groups[keyword]
+        else:
+            prompt = prompt_item
+        
+        # Method 2: Fallback to keyword matching in prompt text
+        prompt_lower = prompt.lower() if isinstance(prompt, str) else ""
+        matched_images = []
+        
+        for keyword in all_keywords:
+            if keyword in prompt_lower:
+                matched_images.extend(image_groups[keyword])
+        
+        # Fallback: Use all images if no match
+        if not matched_images:
+            matched_images = file_paths[:]
+        
+        result.append(matched_images)
+    
+    return _validate_and_log_distribution(result, prompts)
+
+
+def _validate_and_log_distribution(image_lists, prompts):
+    """Log the image distribution for user visibility."""
+    print("\n📸 Image distribution per clip:")
+    for i, (prompt_item, images) in enumerate(zip(prompts, image_lists), 1):
+        # Handle tuple prompts
+        prompt = prompt_item[0] if isinstance(prompt_item, tuple) else prompt_item
+        prompt_preview = prompt[:50] + "..." if len(prompt) > 50 else prompt
+        
+        img_count = len(images)
+        img_names = [Path(img).stem for img in images[:3]]
+        img_preview = ", ".join(img_names)
+        if img_count > 3:
+            img_preview += f", ... ({img_count} total)"
+        
+        print(f"   Clip {i}: {img_count} images ({img_preview})")
+        print(f"           Prompt: {prompt_preview}")
+    print()
+    
+    return image_lists
+
+
 def _run_stitching_mode(args, config, file_paths, backend):
     """Run Veo 3.1 stitching flow with multiple prompts/clips.
     
@@ -251,8 +365,8 @@ def _run_stitching_mode(args, config, file_paths, backend):
     prompts = args["prompts"]  # List of prompts for each clip
     model = args["model"] or config.default_model
 
-    # Use the same images for all clips (or could be customized)
-    file_paths_list = [file_paths] * len(prompts) if file_paths else None
+    # Intelligently distribute images among clips based on filename patterns
+    file_paths_list = _distribute_images_to_clips(file_paths, prompts) if file_paths else None
     out_paths = args.get("out_paths")
     
     # Determine provider name for display

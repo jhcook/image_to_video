@@ -52,6 +52,7 @@ export RUNWAY_API_KEY="your-key"      # For RunwayML
 ### Advanced Topics
 
 - **[Stitching Guide](docs/advanced/stitching.md)** - Multi-clip video generation
+- **[Image Grouping](docs/advanced/image-grouping.md)** - Control which images are used per clip
 - **[Prompt Engineering](docs/advanced/prompts.md)** - Writing effective prompts
 - **[Troubleshooting](docs/advanced/troubleshooting.md)** - Common issues
 
@@ -108,6 +109,8 @@ See **[Backend Comparison](docs/reference/backend-comparison.md)** for detailed 
      "Dolly forward into the living room" \\
      "Pan right to show the kitchen"
 ```
+
+**💡 Tip:** Control which images are used for each clip - see **[Image Grouping Guide](docs/advanced/image-grouping-quick.md)**
 
 ## Installation
 

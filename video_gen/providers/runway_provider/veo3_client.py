@@ -16,6 +16,7 @@ except ImportError:
     requests = None
 
 from .config import RunwayConfig
+from ...exceptions import InsufficientCreditsError
 from ...logger import get_library_logger
 
 
@@ -73,33 +74,97 @@ class RunwayVeoClient:
             "X-Runway-Version": "2024-11-06"
         }
 
-    def _encode_image_to_base64(self, image_path: str) -> str:
+    def _encode_image_to_base64(self, image_path: str, max_size_kb: int = 800) -> str:
         """
-        Encode an image file to base64 data URI.
+        Encode an image file to base64 data URI with automatic compression.
+        
+        Images are compressed/resized if they exceed max_size_kb to avoid
+        413 "Request Too Large" errors from the API.
 
         Args:
             image_path: Path to the image file
+            max_size_kb: Maximum size in KB before compression (default: 800KB)
 
         Returns:
             Base64 encoded data URI string
         """
         import mimetypes
+        from io import BytesIO
+        
+        try:
+            from PIL import Image
+        except ImportError:
+            Image = None
 
         path = Path(image_path)
         if not path.exists():
             raise FileNotFoundError(f"Image file not found: {image_path}")
 
-        # Guess MIME type
-        mime_type, _ = mimetypes.guess_type(str(path))
-        if not mime_type or not mime_type.startswith('image/'):
-            mime_type = 'image/png'  # Default to PNG
-
-        # Read and encode image
-        with open(path, 'rb') as f:
-            image_data = f.read()
-
-        encoded = base64.b64encode(image_data).decode('utf-8')
-        return f"data:{mime_type};base64,{encoded}"
+        # Check original file size
+        original_size_kb = path.stat().st_size / 1024
+        
+        # If file is small enough and we have PIL, or we don't have PIL, use original
+        if original_size_kb <= max_size_kb or Image is None:
+            if original_size_kb > max_size_kb and Image is None:
+                self.logger.warning(
+                    f"Image {path.name} is {original_size_kb:.0f}KB (>{max_size_kb}KB) "
+                    "but PIL not available for compression. Install: pip install pillow"
+                )
+            
+            # Read and encode original image
+            mime_type, _ = mimetypes.guess_type(str(path))
+            if not mime_type or not mime_type.startswith('image/'):
+                mime_type = 'image/jpeg'  # Default to JPEG for better compression
+            
+            with open(path, 'rb') as f:
+                image_data = f.read()
+            
+            encoded = base64.b64encode(image_data).decode('utf-8')
+            return f"data:{mime_type};base64,{encoded}"
+        
+        # Compress image using PIL
+        self.logger.debug(
+            f"Compressing {path.name} ({original_size_kb:.0f}KB) to under {max_size_kb}KB"
+        )
+        
+        img = Image.open(path)
+        
+        # Convert RGBA to RGB if necessary
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        
+        # Try different quality levels until we get under max_size_kb
+        for quality in [85, 75, 65, 55, 45]:
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=quality, optimize=True)
+            compressed_size_kb = len(buffer.getvalue()) / 1024
+            
+            if compressed_size_kb <= max_size_kb:
+                self.logger.info(
+                    f"Compressed {path.name}: {original_size_kb:.0f}KB → {compressed_size_kb:.0f}KB "
+                    f"(quality={quality})"
+                )
+                encoded = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                return f"data:image/jpeg;base64,{encoded}"
+        
+        # If still too large, resize and try again
+        self.logger.warning(f"Resizing {path.name} to reduce size further")
+        img.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
+        
+        buffer = BytesIO()
+        img.save(buffer, format='JPEG', quality=85, optimize=True)
+        final_size_kb = len(buffer.getvalue()) / 1024
+        
+        self.logger.info(
+            f"Resized and compressed {path.name}: {original_size_kb:.0f}KB → {final_size_kb:.0f}KB"
+        )
+        
+        encoded = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return f"data:image/jpeg;base64,{encoded}"
 
     def create_image_to_video_task(
         self,
@@ -136,6 +201,10 @@ class RunwayVeoClient:
         Raises:
             RuntimeError: If API request fails
         """
+        # Validate required parameters
+        if not prompt:
+            raise ValueError("Prompt is required for video generation")
+        
         self.logger.info(f"Creating RunwayML Veo task: model={model}, {width}x{height}, {duration}s")
         self.logger.debug(f"Prompt: {prompt[:100]}...")
 
@@ -150,31 +219,59 @@ class RunwayVeoClient:
             "duration": duration
         }
 
-        # Add first keyframe if provided
+        # RunwayML Veo API requires 'promptImage' (the source/first frame)
+        # Determine what to use as promptImage
+        prompt_image_source = None
+        
         if first_frame:
-            self.logger.debug(f"Encoding first keyframe: {first_frame}")
+            # Use explicit first_frame as promptImage
+            prompt_image_source = first_frame
+            self.logger.debug(f"Using first_frame as promptImage: {first_frame}")
+        elif reference_images and len(reference_images) > 0:
+            # Use first reference image as promptImage
+            prompt_image_source = reference_images[0]
+            self.logger.debug(f"Using first reference image as promptImage: {reference_images[0]}")
+        
+        if not prompt_image_source:
+            raise ValueError(
+                "RunwayML Veo API requires a source image (promptImage).\n"
+                "Provide either first_frame or at least one reference_image."
+            )
+        
+        # Encode and add promptImage (required field)
+        self.logger.debug(f"Encoding promptImage: {prompt_image_source}")
+        payload["promptImage"] = self._encode_image_to_base64(prompt_image_source)
+        self.logger.info("Added promptImage (source frame)")
+
+        # Add first keyframe if provided (for stitching)
+        if first_frame:
+            self.logger.debug(f"Encoding firstKeyframe: {first_frame}")
             payload["firstKeyframe"] = self._encode_image_to_base64(first_frame)
-            self.logger.info("Added first keyframe")
+            self.logger.info("Added firstKeyframe for stitching")
 
         # Add last keyframe if provided
         if last_frame:
-            self.logger.debug(f"Encoding last keyframe: {last_frame}")
+            self.logger.debug(f"Encoding lastKeyframe: {last_frame}")
             payload["lastKeyframe"] = self._encode_image_to_base64(last_frame)
-            self.logger.info("Added last keyframe for stitching")
+            self.logger.info("Added lastKeyframe")
 
-        # Add reference images if provided
-        if reference_images:
-            if len(reference_images) > 3:
+        # Add remaining reference images (excluding the one used as promptImage)
+        if reference_images and len(reference_images) > 1:
+            # Use remaining images as reference (skip first if it was used as promptImage and no first_frame)
+            ref_images_to_use = reference_images if first_frame else reference_images[1:]
+            
+            if len(ref_images_to_use) > 3:
                 self.logger.warning(
-                    f"Veo supports max 3 reference images, truncating from {len(reference_images)}"
+                    f"Veo supports max 3 reference images, truncating from {len(ref_images_to_use)}"
                 )
-                reference_images = reference_images[:3]
+                ref_images_to_use = ref_images_to_use[:3]
 
-            self.logger.debug(f"Encoding {len(reference_images)} reference images")
-            payload["referenceImages"] = [
-                self._encode_image_to_base64(ref_img) for ref_img in reference_images
-            ]
-            self.logger.info(f"Added {len(reference_images)} reference images")
+            if ref_images_to_use:
+                self.logger.debug(f"Encoding {len(ref_images_to_use)} reference images")
+                payload["referenceImages"] = [
+                    self._encode_image_to_base64(ref_img) for ref_img in ref_images_to_use
+                ]
+                self.logger.info(f"Added {len(ref_images_to_use)} reference images")
 
         # Make API request with retry logic
         return self._make_request_with_retry(payload)
@@ -185,12 +282,65 @@ class RunwayVeoClient:
         while True:
             try:
                 self.logger.debug(f"Sending RunwayML API request (attempt {retry_count + 1})")
+                # Log payload structure (without huge base64 data)
+                payload_summary = {k: f"<{len(v)} chars>" if isinstance(v, str) and len(v) > 100 
+                                  else f"<{len(v)} items>" if isinstance(v, list) 
+                                  else v 
+                                  for k, v in payload.items()}
+                self.logger.debug(f"Payload structure: {payload_summary}")
+                
                 response = requests.post(
                     f"{self.base_url}/image_to_video",
                     headers=self._get_headers(),
                     json=payload,
                     timeout=30
                 )
+
+                if response.status_code == 400:
+                    # Bad Request - show API error details
+                    try:
+                        error_data = response.json()
+                        error_message = error_data.get('error', error_data)
+                        self.logger.error(f"Bad Request (400): {error_message}")
+                        self.logger.error(f"Full API response: {response.text}")
+                    except Exception:
+                        self.logger.error(f"Bad Request (400): {response.text[:500]}")
+                    
+                    # Parse common issues
+                    error_text = response.text
+                    # Detect insufficient credits explicitly and bail out gracefully
+                    combined_text = " ".join([
+                        str(error_message).lower() if 'error_message' in locals() else "",
+                        error_text.lower() if error_text else ""
+                    ])
+                    if any(kw in combined_text for kw in ["not enough credit", "enough credits", "insufficient credits"]):
+                        raise InsufficientCreditsError(
+                            (
+                                "RunwayML: insufficient credits to create a Veo task.\n"
+                                "Next steps:\n"
+                                "  • Add credits in your Runway account: https://app.runwayml.com/settings/billing\n"
+                                "  • Or switch backend/model (e.g., --backend veo3 to use Google Veo directly)\n"
+                                "  • Or reduce the number/length of clips and retry\n"
+                            ),
+                            provider="runway"
+                        )
+                    if "invalid_union" in error_text or "expected string, received undefined" in error_text:
+                        model_name = payload.get('model', 'unknown')
+                        raise RuntimeError(
+                            f"RunwayML Veo API validation error.\n"
+                            f"This may indicate:\n"
+                            f"  1. API format changed - check RunwayML documentation\n"
+                            f"  2. Model '{model_name}' may not support the requested parameters\n"
+                            f"  3. Incompatible combination of firstKeyframe/referenceImages\n\n"
+                            f"API Error: {error_text[:500]}\n\n"
+                            f"Try: --backend veo3 (native Google Veo API) as an alternative"
+                        )
+                    else:
+                        raise RuntimeError(
+                            f"RunwayML API rejected the request (400 Bad Request).\n"
+                            f"Error: {response.text[:500]}\n"
+                            "This usually means invalid parameters (width, height, duration, etc.)"
+                        )
 
                 if response.status_code == 401:
                     self.logger.error(
@@ -207,6 +357,23 @@ class RunwayVeoClient:
                         "RunwayML authentication failed. Invalid or missing API key.\n"
                         "Get your key from https://app.runwayml.com/settings/api-keys\n"
                         "and set RUNWAY_API_KEY in your .env file."
+                    )
+
+                if response.status_code == 413:
+                    self.logger.error(
+                        "Request too large (413). This usually means:\n"
+                        "  1. Too many reference images or images are too large\n"
+                        "  2. Images need to be compressed/resized before encoding\n"
+                        "  3. Prompt text is extremely long\n\n"
+                        "Solutions:\n"
+                        "  • Reduce number of reference images (max 3)\n"
+                        "  • Use smaller/compressed images (resize to max 1920x1080)\n"
+                        "  • Reduce prompt length\n\n"
+                        f"Current: promptImage + {len(payload.get('referenceImages', []))} reference images"
+                    )
+                    raise RuntimeError(
+                        "RunwayML API rejected request: payload too large (413).\n"
+                        "Try using smaller/compressed images or fewer reference images."
                     )
 
                 if response.status_code in (429, 503):
