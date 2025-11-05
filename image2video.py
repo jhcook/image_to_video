@@ -201,8 +201,8 @@ def _route_to_workflow(args, config, file_paths):
         model = getattr(config, 'default_model', None)
     
     # Check if stitching mode is enabled
-    # Support both veo3 provider and runway provider with veo models
-    is_veo_model = (provider == "veo3") or (provider == "runway" and model and model.startswith("veo"))
+    # Support both google provider and runway provider with veo models
+    is_veo_model = (provider == "google") or (provider == "runway" and model and model.startswith("veo"))
     
     if is_veo_model and args.get("stitch"):
         _run_stitching_mode(args, config, file_paths, provider)
@@ -376,7 +376,7 @@ def _validate_and_log_distribution(image_lists, prompts):
 def _run_stitching_mode(args, config, file_paths, provider):
     """Run Veo 3.1 stitching flow with multiple prompts/clips.
     
-    Supports both Google Veo (veo3 provider) and RunwayML Veo (runway provider with veo* models).
+    Supports both Google Veo (google provider) and RunwayML Veo (runway provider with veo* models).
     """
     from video_gen.video_generator import generate_video_sequence_with_veo3_stitching
 
@@ -388,8 +388,11 @@ def _run_stitching_mode(args, config, file_paths, provider):
     out_paths = args.get("out_paths")
     resume = args.get("resume", False)
     
+    # Map google provider to veo3 for the stitching function
+    stitching_provider = "veo3" if provider == "google" else provider
+    
     # Determine provider name for display
-    provider_name = "Google Veo 3.1" if provider == "veo3" else f"RunwayML {model}"
+    provider_name = "Google Veo 3.1" if provider == "google" else f"RunwayML {model}"
 
     print(f"\n🎬 Stitching Mode: Generating {len(prompts)} clips with seamless transitions")
     print(f"   Provider: {provider_name}")
@@ -414,7 +417,7 @@ def _run_stitching_mode(args, config, file_paths, provider):
         config=config,
         model=model,
         delay_between_clips=args["delay"],
-        provider=provider,
+        provider=stitching_provider,
         resume=resume
     )
     print("=" * 50)
