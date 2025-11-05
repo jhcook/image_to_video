@@ -286,6 +286,41 @@ See Also:
 """
 
 
+def _find_matching_providers(model: str, current_provider: str) -> list[str]:
+    """Find providers that support the given model (excluding current provider)."""
+    all_providers = ["openai", "azure", "google", "runway"]
+    matching_providers = []
+    
+    for other_provider in all_providers:
+        if other_provider == current_provider:
+            continue
+        try:
+            other_models = get_available_models(other_provider, query_api=False)
+            if model in other_models:
+                matching_providers.append(other_provider)
+        except Exception:
+            # Skip if we can't get models for this provider
+            continue
+    
+    return matching_providers
+
+
+def _build_model_error_message(model: str, provider: str, available_models: list[str], matching_providers: list[str]) -> str:
+    """Build helpful error message for model validation failures."""
+    if matching_providers:
+        providers_str = "', '".join(matching_providers)
+        return (
+            f"Model '{model}' is not available for provider '{provider}'. "
+            f"This model is available for provider(s): '{providers_str}'. "
+            f"Use --provider {matching_providers[0]} instead."
+        )
+    else:
+        return (
+            f"Model '{model}' is not recognized for provider '{provider}'. "
+            f"Available models for '{provider}': {', '.join(available_models)}"
+        )
+
+
 def _validate_model_for_provider(model: str, provider: VideoProvider, logger) -> None:
     """
     Validate that the specified model is compatible with the provider.
@@ -309,33 +344,11 @@ def _validate_model_for_provider(model: str, provider: VideoProvider, logger) ->
             logger.debug(f"Model '{model}' not found in provider '{provider}'. Checking other providers...")
             
             # Check which provider(s) support this model
-            all_providers = ["openai", "azure", "google", "runway"]
-            matching_providers = []
+            matching_providers = _find_matching_providers(model, provider)
             
-            for other_provider in all_providers:
-                if other_provider == provider:
-                    continue
-                try:
-                    other_models = get_available_models(other_provider, query_api=False)
-                    if model in other_models:
-                        matching_providers.append(other_provider)
-                except Exception:
-                    # Skip if we can't get models for this provider
-                    continue
-            
-            # Build helpful error message
-            if matching_providers:
-                providers_str = "', '".join(matching_providers)
-                raise ValueError(
-                    f"Model '{model}' is not available for provider '{provider}'. "
-                    f"This model is available for provider(s): '{providers_str}'. "
-                    f"Use --provider {matching_providers[0]} instead."
-                )
-            else:
-                raise ValueError(
-                    f"Model '{model}' is not recognized for provider '{provider}'. "
-                    f"Available models for '{provider}': {', '.join(available_models)}"
-                )
+            # Build and raise helpful error message
+            error_message = _build_model_error_message(model, provider, available_models, matching_providers)
+            raise ValueError(error_message)
     
     except ValueError:
         # Re-raise ValueError (our validation error)
