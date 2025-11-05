@@ -24,8 +24,8 @@ class TestStitchConfigLoading(unittest.TestCase):
     """Test _get_stitch_config helper function."""
 
     @patch('video_gen.video_generator.Veo3Config.from_environment')
-    def test_veo3_backend_loads_veo3_config(self, mock_from_env):
-        """Should load Veo3Config when backend is veo3 and config is None."""
+    def test_veo3_provider_loads_veo3_config(self, mock_from_env):
+        """Should load Veo3Config when provider is veo3 and config is None."""
         mock_config = MagicMock(spec=Veo3Config)
         mock_from_env.return_value = mock_config
         
@@ -35,8 +35,8 @@ class TestStitchConfigLoading(unittest.TestCase):
         self.assertEqual(result, mock_config)
 
     @patch('video_gen.video_generator.RunwayConfig.from_environment')
-    def test_runway_backend_loads_runway_config(self, mock_from_env):
-        """Should load RunwayConfig when backend is runway and config is None."""
+    def test_runway_provider_loads_runway_config(self, mock_from_env):
+        """Should load RunwayConfig when provider is runway and config is None."""
         mock_config = MagicMock(spec=RunwayConfig)
         mock_from_env.return_value = mock_config
         
@@ -108,8 +108,8 @@ class TestBuildExpectedOutPaths(unittest.TestCase):
         
         self.assertEqual(result, custom_paths)
 
-    def test_default_paths_veo3_backend(self):
-        """Should generate veo3_clip_N.mp4 for veo3 backend."""
+    def test_default_paths_veo3_provider(self):
+        """Should generate veo3_clip_N.mp4 for veo3 provider."""
         result = _build_expected_out_paths(3, None, "veo3")
         
         self.assertEqual(result, [
@@ -118,8 +118,8 @@ class TestBuildExpectedOutPaths(unittest.TestCase):
             "veo3_clip_3.mp4",
         ])
 
-    def test_default_paths_runway_backend(self):
-        """Should generate runway_veo_clip_N.mp4 for runway backend."""
+    def test_default_paths_runway_provider(self):
+        """Should generate runway_veo_clip_N.mp4 for runway provider."""
         result = _build_expected_out_paths(3, None, "runway")
         
         self.assertEqual(result, [

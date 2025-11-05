@@ -11,8 +11,8 @@ Common issues and fixes for the Multi-Backend Video Generator.
 
 1. Python venv is activated: `source venv/bin/activate`
 2. Dependencies installed: `pip install -r requirements.txt`
-3. Correct backend selected: `--backend sora2|azure-sora|veo3|runway`
-4. Required environment variables set (per backend)
+3. Correct provider selected: `--provider openai|azure|google|runway`
+4. Required environment variables set (per provider)
 5. Images exist and paths are correct (use absolute paths if unsure)
 6. Logs reviewed for details: `tail -50 logs/video_gen.log`
 
@@ -37,7 +37,7 @@ Common issues and fixes for the Multi-Backend Video Generator.
   - Token expired (valid ~1h); re-run `--google-login` or `gcloud auth application-default login`
   - Ensure `GOOGLE_CLOUD_PROJECT` is set to a valid project ID
 - Error: Using AI Studio key
-  - Veo requires OAuth token, not AI Studio API key; follow docs/backends/google-veo.md
+  - Veo requires OAuth token, not AI Studio API key; follow docs/providers/google-veo.md
 - Error: Vertex AI API not enabled
   - Enable: `gcloud services enable aiplatform.googleapis.com`
 
@@ -81,7 +81,7 @@ Common issues and fixes for the Multi-Backend Video Generator.
 ## Performance & Reliability
 
 - Slow generation times
-  - Fast models: gen4_turbo (Runway), veo-3.0-fast (Google), veo3.1_fast (Runway)
+  - Fast models: gen4_turbo (Runway), veo-3.0-fast (Google), google.1_fast (Runway)
   - Lower resolution and shorter duration during testing
 - API capacity errors / 429
   - Script retries with exponential backoff automatically; wait or try off-peak
@@ -112,8 +112,8 @@ Common issues and fixes for the Multi-Backend Video Generator.
 ## Common Command Examples
 
 - List models: `./image2video.py --list-models` or `--list-models runway`
-- Quick test: `./image2video.py --backend runway --model gen4_turbo "A quick test"`
-- Stitching: `./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch -p "A" "B"`
+- Quick test: `./image2video.py --provider runway --model gen4_turbo "A quick test"`
+- Stitching: `./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch -p "A" "B"`
 
 ## When to Switch Backends
 
@@ -126,4 +126,4 @@ Common issues and fixes for the Multi-Backend Video Generator.
 
 - Revisit installation: installation.md
 - Recheck authentication: reference/authentication.md
-- Open an issue with: logs excerpt, command used (omit secrets), backend, model, and error message.
+- Open an issue with: logs excerpt, command used (omit secrets), provider, model, and error message.

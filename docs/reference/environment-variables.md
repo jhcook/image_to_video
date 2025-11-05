@@ -6,13 +6,13 @@ The application loads variables from the OS environment and a `.env` file in the
 
 ## Global
 
-- No global variables are strictly required; each backend has its own.
+- No global variables are strictly required; each provider has its own.
 
 ## OpenAI Sora-2
 
 - `OPENAI_API_KEY`
   - Description: OpenAI API key for Sora-2 access
-  - Required: Yes (for OpenAI backend)
+  - Required: Yes (for OpenAI provider)
   - Example: `sk-proj-xxxxx`
 
 ## Azure AI Foundry Sora
@@ -49,7 +49,7 @@ The application loads variables from the OS environment and a `.env` file in the
 - `RUNWAY_MODEL`
   - Description: Default model selection for RunwayML
   - Required: No
-  - Allowed: `gen4_turbo`, `gen4`, `veo3`, `veo3.1`, `veo3.1_fast`
+  - Allowed: `gen4_turbo`, `gen4`, `google`, `google.1`, `google.1_fast`
 
 ## Tips
 
@@ -78,8 +78,8 @@ RUNWAY_MODEL=gen4_turbo
 
 ## Where They’re Used
 
-- `video_gen/config.py` loads and validates variables per backend
-- `video_gen/video_generator.py` chooses backend configs via `create_config_for_backend`
+- `video_gen/config.py` loads and validates variables per provider
+- `video_gen/video_generator.py` chooses provider configs via `create_config_for_provider`
 
 ## Troubleshooting
 

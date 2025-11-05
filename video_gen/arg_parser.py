@@ -1,22 +1,22 @@
 """
-Command-line argument parsing for video generation with multiple backends.
+Command-line argument parsing for video generation with multiple providers.
 
 Handles complex shell wildcard expansion scenarios and argument validation
-for both Sora-2 and Veo-3 backends.
+for both Sora-2 and Veo-3 providers.
 """
 
 import sys
 from typing import Dict, Any, Optional
 
-from .config import get_available_backends, print_available_models, VideoBackend
+from .config import get_available_providers, print_available_models, print_available_providers, VideoProvider
 
 
-# Supported Backend Names
-BACKEND_SORA2 = 'sora2'
-BACKEND_AZURE_SORA = 'azure-sora'
-BACKEND_VEO3 = 'veo3'
-BACKEND_RUNWAY = 'runway'
-SUPPORTED_BACKENDS = [BACKEND_SORA2, BACKEND_AZURE_SORA, BACKEND_VEO3, BACKEND_RUNWAY]
+# Supported provider Names
+PROVIDER_OPENAI = 'openai'
+PROVIDER_AZURE = 'azure'
+PROVIDER_GOOGLE = 'google'
+PROVIDER_RUNWAY = 'runway'
+SUPPORTED_PROVIDERS = [PROVIDER_OPENAI, PROVIDER_AZURE, PROVIDER_GOOGLE, PROVIDER_RUNWAY]
 
 # Minimum prompts required for stitching mode
 MIN_STITCH_PROMPTS = 2
@@ -35,6 +35,10 @@ class SoraArgumentParser:
         if '-h' in argv or '--help' in argv:
             print(self.help_text)
             sys.exit(0)
+
+        # Handle --list-providers
+        if '--list-providers' in argv:
+            self._handle_list_providers()
 
         # Handle --list-models
         if '--list-models' in argv:
@@ -60,7 +64,7 @@ class SoraArgumentParser:
     
     def _validate_and_finalize(self, result):
         """Validate arguments and finalize prompt handling."""
-        self._validate_backend(result['backend'])
+        self._validate_providers(result['provider'])
         
         if result['stitch']:
             self._validate_stitching(result)
@@ -96,7 +100,7 @@ class SoraArgumentParser:
             'images': [],
             'prompt': None,
             'prompts': [],
-            'backend': 'sora2',
+            'provider': 'openai',
             'width': 1280,
             'height': 720,
             'fps': 24,
@@ -118,8 +122,8 @@ class SoraArgumentParser:
         # Complex argument handlers
         if arg in ['-i', '--images']:
             return self._parse_images_arg(args, i, result)
-        if arg in ['-b', '--backend']:
-            return self._parse_backend_arg(args, i, result)
+        if arg in ['--provider']:
+            return self._parse_provider_arg(args, i, result)
         if arg in ['-p', '--prompts']:
             return self._parse_prompts_arg(args, i, result)
         
@@ -171,7 +175,7 @@ class SoraArgumentParser:
         return not arg.startswith('-') and not result['prompt'] and not result['prompts']
     """
     Custom command-line argument parser that handles shell wildcard expansion
-    and backend selection for video generation.
+    and provider selection for video generation.
     
     This implements a custom argument parser instead of using argparse
     because we need to handle a specific shell expansion scenario where:
@@ -185,50 +189,55 @@ class SoraArgumentParser:
     
     def __init__(self):
         """Initialize the argument parser."""
-        self.available_backends = get_available_backends()
+        self.available_providers = get_available_providers()
         self.help_text = self._generate_help_text()
+    
+    def _handle_list_providers(self) -> None:
+        """Handle --list-providers flag and exit."""
+        print_available_providers()
+        sys.exit(0)
     
     def _handle_list_models(self, args: list) -> None:
         """Handle --list-models flag and exit."""
-        backend_to_show = self._find_backend_for_list_models(args)
-        print_available_models(backend_to_show)
+        providers_to_show = self._find_providers_for_list_models(args)
+        print_available_models(providers_to_show)
         sys.exit(0)
     
-    def _find_backend_for_list_models(self, args: list) -> str:
-        """Find which backend to show models for."""
+    def _find_providers_for_list_models(self, args: list) -> str:
+        """Find which providers to show models for."""
         list_models_idx = args.index('--list-models')
         
-        # Check if backend name follows --list-models
-        if list_models_idx + 1 < len(args) and args[list_models_idx + 1] in SUPPORTED_BACKENDS:
+        # Check if providers name follows --list-models
+        if list_models_idx + 1 < len(args) and args[list_models_idx + 1] in SUPPORTED_PROVIDERS:
             return args[list_models_idx + 1]
         
-        # Otherwise, scan for --backend flag
-        return self._find_backend_flag_value(args)
+        # Otherwise, scan for --providers flag
+        return self._find_providers_flag_value(args)
     
-    def _find_backend_flag_value(self, args: list) -> Optional[str]:
-        """Extract backend value from --backend or -b flag."""
-        for flag in ['--backend', '-b']:
+    def _find_providers_flag_value(self, args: list) -> Optional[str]:
+        """Extract provider value from --provider, --provider, or -b flag."""
+        for flag in ['--provider']:
             if flag in args:
                 try:
-                    backend_idx = args.index(flag)
-                    if backend_idx + 1 < len(args):
-                        return args[backend_idx + 1]
+                    providers_idx = args.index(flag)
+                    if providers_idx + 1 < len(args):
+                        return args[providers_idx + 1]
                 except (ValueError, IndexError):
                     pass
         return None
     
-    def _validate_backend(self, backend: str) -> None:
-        """Validate that backend is supported and available."""
-        if backend not in SUPPORTED_BACKENDS:
-            backends_str = "', '".join(SUPPORTED_BACKENDS)
+    def _validate_providers(self, provider: str) -> None:
+        """Validate that providers is supported and available."""
+        if provider not in SUPPORTED_PROVIDERS:
+            provider_str = "', '".join(SUPPORTED_PROVIDERS)
             raise ValueError(
-                f"Unsupported backend '{backend}'. Use '{backends_str}'\n"
-                "Tip: Use --list-models to see available models for each backend"
+                f"Unsupported provider '{provider}'. Use '{provider_str}'\n"
+                "Tip: Use --list-models to see available models for each provider"
             )
-        if backend not in self.available_backends:
+        if provider not in self.available_providers:
             raise ValueError(
-                f"Backend '{backend}' is not available (missing API credentials)\n"
-                f"Available backends: {', '.join(self.available_backends)}\n"
+                f"provider '{provider}' is not available (missing API credentials)\n"
+                f"Available providers: {', '.join(self.available_providers)}\n"
                 "Tip: Use --list-models to see configuration requirements"
             )
     
@@ -240,11 +249,11 @@ class SoraArgumentParser:
                 "Example: --stitch -p 'Prompt 1' 'Prompt 2' 'Prompt 3'"
             )
     
-    def _parse_backend_arg(self, args: list, i: int, result: Dict[str, Any]) -> int:
-        """Parse backend argument with validation."""
-        backend = self._parse_string_arg(args, i, '--backend')
-        self._validate_backend(backend)
-        result['backend'] = backend
+    def _parse_provider_arg(self, args: list, i: int, result: Dict[str, Any]) -> int:
+        """Parse provider argument with validation."""
+        provider = self._parse_string_arg(args, i, '--provider')
+        self._validate_providers(provider)
+        result['provider'] = provider
         return i + 1
     
     def _parse_int_option(self, arg: str, args: list, i: int, result: Dict[str, Any]) -> int:
@@ -324,9 +333,9 @@ class SoraArgumentParser:
     
     def _generate_help_text(self) -> str:
         """Generate comprehensive help text."""
-        available_str = f"Available backends: {', '.join(self.available_backends)}" if self.available_backends else "No backends available (check API credentials)"
+        available_str = f"Available providers: {', '.join(self.available_providers)}" if self.available_providers else "No providers available (check API credentials)"
         
-        return f"""usage: image2video.py [-h] [-i IMAGES ...] [-b BACKEND] [--width WIDTH] [--height HEIGHT]
+        return f"""usage: image2video.py [-h] [-i IMAGES ...] [--provider PROVIDER] [--width WIDTH] [--height HEIGHT]
                       [--fps FPS] [--duration DURATION] [--seed SEED] [-o OUTPUT]
                       [--stitch] [-p PROMPTS ...] prompt
 
@@ -338,11 +347,12 @@ positional arguments:
 
 options:
   -h, --help            Show this help message and exit
-  --list-models [BACKEND]
-                        List available models for all backends or a specific one
+  --list-providers      List all video generation providers with their availability status
+  --list-models [PROVIDER]
+                        List available models for all providers or a specific one
                         Example: --list-models runway
   -i, --images IMAGES   Image file paths (supports multiple files and shell wildcards)
-  -b, --backend BACKEND Video generation backend: 'sora2', 'azure-sora', 'veo3', or 'runway' (default: sora2)
+  --provider PROVIDER   Video generation provider: 'openai', 'azure', 'google', or 'runway' (default: openai)
                         {available_str}
   -p, --prompt PROMPT   Text prompt (alternative to positional argument)
                         Single prompt: -p "Your prompt here"
@@ -353,12 +363,12 @@ options:
   --duration DURATION   Video duration in seconds (default: 8, or per-clip if stitching)
   --seed SEED           Random seed for reproducible results (optional)
   -m, --model MODEL     Specific model to use (e.g., gen4_turbo, gen4, veo-3.1-fast-generate-preview)
-                        Use --list-models to see available models per backend
-  -o, --output OUTPUT   Output video file path (default: <backend>_output.mp4)
+                        Use --list-models to see available models per provider
+  -o, --output OUTPUT   Output video file path (default: <provider>_output.mp4)
   
 Veo 3.1 Stitching Mode (Multi-Clip):
   --stitch              Enable seamless multi-clip stitching (Veo 3.1 only)
-                        Requires 2+ prompts via -p and --backend veo3
+                        Requires 2+ prompts via -p and --provider google (or runway)
                         Example: --stitch -p 'Clip 1' 'Clip 2' 'Clip 3'
   --resume              Resume stitching from where it left off (skips existing clips)
                         Useful when generation was interrupted or credits ran out
@@ -368,7 +378,7 @@ Veo 3.1 Stitching Mode (Multi-Clip):
                         Recommended: 10-30 seconds for heavy use
 
 Google Authentication:
-  --google-login        Authenticate with Google Cloud for Veo-3 backend
+  --google-login        Authenticate with Google Cloud for Veo-3 provider
                         Supports two methods (tries gcloud first, falls back to OAuth):
                         1. gcloud CLI (recommended): Uses 'gcloud auth' automatically
                         2. OAuth browser: Opens browser for login (requires client_secrets.json)
@@ -381,7 +391,7 @@ Google Authentication:
                         Use this to force re-authentication or switch accounts
                         Removes token.pickle file from google_provider directory
 
-Backend Requirements:
+provider Requirements:
   Sora-2 (OpenAI):      Set OPENAI_API_KEY environment variable (API key)
   Azure Sora:           Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT
                         Get credentials from: https://ai.azure.com/
@@ -392,25 +402,28 @@ Backend Requirements:
   RunwayML:             Set RUNWAY_API_KEY environment variable (optional: RUNWAY_MODEL)
 
 Examples:
-  # List available models for all backends
+  # List all providers and their availability
+  image2video.py --list-providers
+  
+  # List available models for all providers
   image2video.py --list-models
   
-  # List models for specific backend
+  # List models for specific provider
   image2video.py --list-models runway
   
-  # Text-only generation with default Sora-2
+  # Text-only generation with default OpenAI Sora-2
   image2video.py "A serene mountain landscape with flowing water"
   
-  # Using different backends
-  image2video.py --backend azure-sora "A serene mountain landscape with flowing water"
-  image2video.py --backend veo3 "A serene mountain landscape with flowing water"
-  image2video.py --backend runway "A serene mountain landscape with flowing water"
+  # Using different providers
+  image2video.py --provider azure "A serene mountain landscape with flowing water"
+  image2video.py --provider google "A serene mountain landscape with flowing water"
+  image2video.py --provider runway "A serene mountain landscape with flowing water"
   
   # Using shell wildcard expansion for image references
   image2video.py -i images/* "A video tour of these beautiful scenes"
-  image2video.py -b veo3 -i ~/Downloads/photos/*.jpg "Create a slideshow video"
+  image2video.py -b google -i ~/Downloads/photos/*.jpg "Create a slideshow video"
   
-  # Using specific image files with Sora-2
+  # Using specific image files with OpenAI Sora-2
   image2video.py -i image1.png image2.jpg "Dynamic sequence between these scenes"
   
   # With custom video parameters
@@ -419,25 +432,25 @@ Examples:
   # Using command substitution for complex prompts
   image2video.py -i photos/* "$(cat detailed_prompt.txt)"
   
-  # Comparing backends with same prompt
-  image2video.py --backend sora2 "Random scene" --seed 42 -o sora2_video.mp4
-  image2video.py --backend veo3 "Random scene" --seed 42 -o veo3_video.mp4
+  # Comparing providers with same prompt
+  image2video.py --provider openai "Random scene" --seed 42 -o openai_video.mp4
+  image2video.py --provider google "Random scene" --seed 42 -o google_video.mp4
   
   # Google Authentication (Veo-3)
   # Auto-authenticate and generate in one command (tries gcloud first)
-  image2video.py --backend veo3 --google-login -p "A serene landscape"
+  image2video.py --provider google --google-login -p "A serene landscape"
   
   # Force browser OAuth login (skip gcloud, use different account)
-  image2video.py --backend veo3 --google-login-browser -p "A serene landscape"
+  image2video.py --provider google --google-login-browser -p "A serene landscape"
   
   # Just authenticate (for testing or to cache credentials)
-  image2video.py --backend veo3 --google-login
+  image2video.py --provider google --google-login
   
   # Clear cached OAuth credentials (force re-authentication next time)
   image2video.py --google-clear-cache
   
   # Veo 3.1 Stitching with authentication - Generate multiple clips
-  image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \\
+  image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \\
     --google-login -i foyer.png living.png kitchen.png \\
     -p "Pan right from foyer to reveal the stairs" \\
        "Dolly forward into living area, pan left to sofas" \\
@@ -448,10 +461,10 @@ Tips:
   - Use quotes around prompts to handle spaces and special characters
   - Wildcard patterns like *.jpg are expanded by the shell before reaching the script
   - For long prompts, consider storing them in a file and using $(cat prompt.txt)
-  - Both backends handle synchronous and asynchronous API responses automatically
+  - Both providers handle synchronous and asynchronous API responses automatically
   - Stitching mode (--stitch) requires Veo 3.1 models and generates seamless multi-clip videos
   - If models are at capacity, the script will retry automatically with backoff delays
   - Use Ctrl+C to cancel during capacity retry attempts
   - Generated videos are saved in MP4 format with H.264 encoding
-  - Set up API credentials for both backends to compare their outputs
+  - Set up API credentials for both providers to compare their outputs
 """

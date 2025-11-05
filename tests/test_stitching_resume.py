@@ -36,7 +36,7 @@ class TestStitchingResume(unittest.TestCase):
                 outputs = vg.generate_video_sequence_with_veo3_stitching(
                     prompts=prompts,
                     file_paths_list=[[], [], []],
-                    backend="runway",
+                    provider="runway",
                     model="veo3.1_fast",
                     duration_seconds=5,
                     delay_between_clips=0,

@@ -10,8 +10,8 @@ from .config import (
     SoraConfig,
     Veo3Config,
     RunwayConfig,
-    VideoBackend,
-    create_config_for_backend,
+    VideoProvider,
+    create_config_for_provider,
 )
 from .providers import (
     SoraAPIClient,
@@ -73,24 +73,24 @@ def generate_video_sequence_with_veo3_stitching(
     config: Optional[Union[Veo3Config, RunwayConfig]] = None,
     model: Optional[str] = None,
     delay_between_clips: int = 10,
-    backend: str = "veo3",
+    provider: str = "veo3",
     resume: bool = False,
 ) -> List[str]:
     """
     Generate a sequence of Veo video clips with seamless frame transitions.
 
-    Supports both Google Veo (backend="veo3") and RunwayML Veo (backend="runway").
+    Supports both Google Veo (provider="veo3") and RunwayML Veo (provider="runway").
     """
     logger = get_library_logger()
 
     # Config and model validation
-    config = _get_stitch_config(backend, config)
+    config = _get_stitch_config(provider, config)
     _validate_stitch_model(model)
 
     outputs: List[str] = []
     last_frame_path: Optional[str] = None
 
-    expected_paths = _build_expected_out_paths(len(prompts), out_paths, backend)
+    expected_paths = _build_expected_out_paths(len(prompts), out_paths, provider)
 
     # Resume support: detect already-generated clips and last frame
     start_idx = 0
@@ -101,13 +101,13 @@ def generate_video_sequence_with_veo3_stitching(
     for idx in range(start_idx, len(prompts)):
         prompt = prompts[idx]
         reference_images, source_frame, out_path = _veo3_prepare_clip_params(
-            idx, file_paths_list, last_frame_path, out_paths, backend
+            idx, file_paths_list, last_frame_path, out_paths, provider
         )
         _veo3_log_clip(logger, idx, len(prompts), reference_images, source_frame)
 
         try:
             video_path = _generate_veo_clip(
-                backend=backend,
+                provider=provider,
                 prompt=prompt,
                 reference_images=reference_images,
                 source_frame=source_frame,
@@ -135,10 +135,10 @@ def generate_video_sequence_with_veo3_stitching(
     return outputs
 
 
-def _get_stitch_config(backend: str, config: Optional[Union[Veo3Config, RunwayConfig]]):
+def _get_stitch_config(provider: str, config: Optional[Union[Veo3Config, RunwayConfig]]):
     if config is not None:
         return config
-    if backend == "veo3":
+    if provider == "veo3":
         return Veo3Config.from_environment()
     return RunwayConfig.from_environment()
 
@@ -150,10 +150,10 @@ def _validate_stitch_model(model: Optional[str]) -> None:
         )
 
 
-def _build_expected_out_paths(count: int, out_paths: Optional[List[str]], backend: str) -> List[str]:
+def _build_expected_out_paths(count: int, out_paths: Optional[List[str]], provider: str) -> List[str]:
     if out_paths:
         return list(out_paths)
-    prefix = "veo3" if backend == "veo3" else "runway_veo"
+    prefix = "veo3" if provider == "veo3" else "runway_veo"
     return [f"{prefix}_clip_{i + 1}.mp4" for i in range(count)]
 
 
@@ -181,7 +181,7 @@ def _compute_resume_state(expected_paths: List[str]) -> tuple[List[str], int, Op
 
 def _generate_veo_clip(
     *,
-    backend: str,
+    provider: str,
     prompt: str,
     reference_images: List[str],
     source_frame: Optional[str],
@@ -193,7 +193,7 @@ def _generate_veo_clip(
     config: Union[Veo3Config, RunwayConfig],
     model: Optional[str],
 ) -> str:
-    if backend == "veo3":
+    if provider == "veo3":
         return generate_video_with_veo3(
             prompt=prompt,
             file_paths=reference_images,
@@ -221,15 +221,15 @@ def _generate_veo_clip(
         )
 
 
-def _veo3_prepare_clip_params(idx, file_paths_list, last_frame_path, out_paths, backend="veo3"):
+def _veo3_prepare_clip_params(idx, file_paths_list, last_frame_path, out_paths, provider="veo3"):
     reference_images = file_paths_list[idx] if file_paths_list else []
     source_frame = last_frame_path if idx > 0 else None
     
-    # Generate default output path based on backend
+    # Generate default output path based on provider
     if out_paths:
         out_path = out_paths[idx]
     else:
-        prefix = "veo3" if backend == "veo3" else "runway_veo"
+        prefix = "veo3" if provider == "veo3" else "runway_veo"
         out_path = f"{prefix}_clip_{idx + 1}.mp4"
     
     return reference_images, source_frame, out_path
@@ -257,7 +257,7 @@ def _veo3_sleep_between_clips(logger, idx, total, delay_seconds):
 Main video generation orchestration module.
 
 Coordinates file handling, API calls, and video generation workflow for
-multiple backends (Sora-2, Veo-3, and RunwayML).
+multiple providers (Sora-2, Veo-3, and RunwayML).
 
 Veo 3.1 Stitching Support:
 --------------------------
@@ -290,7 +290,7 @@ def generate_video(
     prompt: str,
     file_paths: Iterable[Union[str, Path]] = (),
     *,
-    backend: VideoBackend = "sora2",
+    provider: VideoProvider = "openai",
     model: str = None,
     width: int = 1280,
     height: int = 720,
@@ -301,16 +301,16 @@ def generate_video(
     config = None
 ) -> str:
     """
-    Generate a video using the specified backend (Sora-2 or Veo-3).
+    Generate a video using the specified provider (OpenAI, Azure, Google, or Runway).
     
-    This is the main unified function that routes to the appropriate backend
+    This is the main unified function that routes to the appropriate provider
     and orchestrates the video generation process.
     
     Args:
         prompt: Text description of the desired video content
         file_paths: Paths to image files for reference. Defaults to empty tuple.
-        backend: Video generation backend to use ("sora2", "veo3", or "runway")
-        model: Specific model to use (backend-dependent). Defaults to None (uses backend default).
+        provider: Video generation provider to use ("openai", "azure", "google", or "runway")
+        model: Specific model to use (provider-dependent). Defaults to None (uses provider default).
         width: Video width in pixels. Defaults to 1280.
         height: Video height in pixels. Defaults to 720.
         fps: Frames per second. Defaults to 24.
@@ -323,7 +323,7 @@ def generate_video(
         Path to the saved video file
         
     Raises:
-        ValueError: If backend is not supported
+        ValueError: If provider is not supported
         RuntimeError: If API calls fail or video generation fails
         FileNotFoundError: If reference image files don't exist
         KeyboardInterrupt: If user cancels during retry backoff
@@ -332,10 +332,10 @@ def generate_video(
         >>> # Generate with Sora-2 (default)
         >>> video_path = generate_video("A peaceful lake at sunset")
         
-        >>> # Generate with Veo-3
+        >>> # Generate with Google Veo-3
         >>> video_path = generate_video(
         ...     "A peaceful lake at sunset",
-        ...     backend="veo3"
+        ...     provider="google"
         ... )
         
         >>> # With image references
@@ -343,16 +343,16 @@ def generate_video(
         >>> video_path = generate_video(
         ...     "A video tour of this lake",
         ...     file_paths=images,
-        ...     backend="sora2",
+        ...     provider="openai",
         ...     width=1920,
         ...     height=1080
         ... )
     """
     logger = get_library_logger()
-    logger.info(f"Starting video generation with backend: {backend}")
+    logger.info(f"Starting video generation with provider: {provider}")
     logger.debug(f"Parameters: {width}x{height}, {fps}fps, {duration_seconds}s, model={model}")
     
-    if backend == "sora2":
+    if provider == "openai":
         return generate_video_with_sora2(
             prompt=prompt,
             file_paths=file_paths,
@@ -361,11 +361,11 @@ def generate_video(
             fps=fps,
             duration_seconds=duration_seconds,
             seed=seed,
-            out_path=out_path or "sora2_output.mp4",
+            out_path=out_path or "openai_output.mp4",
             config=config,
             model=model
         )
-    elif backend == "azure-sora":
+    elif provider == "azure":
         return generate_video_with_azure_sora(
             prompt=prompt,
             file_paths=file_paths,
@@ -374,11 +374,11 @@ def generate_video(
             fps=fps,
             duration_seconds=duration_seconds,
             seed=seed,
-            out_path=out_path or "azure_sora_output.mp4",
+            out_path=out_path or "azure_output.mp4",
             config=config,
             model=model
         )
-    elif backend == "veo3":
+    elif provider == "google":
         return generate_video_with_veo3(
             prompt=prompt,
             file_paths=file_paths,
@@ -387,11 +387,11 @@ def generate_video(
             fps=fps,
             duration_seconds=duration_seconds,
             seed=seed,
-            out_path=out_path or "veo3_output.mp4",
+            out_path=out_path or "google_output.mp4",
             config=config,
             model=model
         )
-    elif backend == "runway":
+    elif provider == "runway":
         return generate_video_with_runway(
             prompt=prompt,
             file_paths=file_paths,
@@ -404,7 +404,7 @@ def generate_video(
             config=config
         )
     else:
-        raise ValueError(f"Unsupported backend: {backend}. Use 'sora2', 'azure-sora', 'veo3', or 'runway'")
+        raise ValueError(f"Unsupported provider: {provider}. Use 'openai', 'azure', 'google', or 'runway'")
 
 
 def generate_video_with_veo3(
@@ -507,7 +507,7 @@ def generate_video_with_sora2(
     fps: int = 24,
     duration_seconds: int = 8,
     seed: int = None,
-    out_path: str = "sora2_output.mp4",
+    out_path: str = "openai_output.mp4",
     config: SoraConfig = None,
     model: str = None
 ) -> str:
@@ -533,7 +533,7 @@ def generate_video_with_sora2(
         fps: Frames per second. Defaults to 24.
         duration_seconds: Video duration in seconds. Defaults to 8.
         seed: Random seed for reproducible results. Defaults to None.
-        out_path: Output file path. Defaults to "sora2_output.mp4".
+        out_path: Output file path. Defaults to "openai_output.mp4".
         config: Sora configuration. If None, loads from environment.
         
     Returns:

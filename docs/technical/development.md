@@ -31,7 +31,7 @@ Recommended tools:
 4. Export client in `video_gen/providers/__init__.py`
 5. Wire into `video_gen/video_generator.py` routing
 6. Add `--list-models` support (arg_parser/config)
-7. Document in `docs/backends/<provider>.md`
+7. Document in `docs/providers/<provider>.md`
 
 ## Code Style
 
@@ -54,7 +54,7 @@ Recommended tools:
 
 ## Release Checklist
 
-- Docs updated (user-guide, backend guide, reference/cli)
+- Docs updated (user-guide, provider guide, reference/cli)
 - Links verified from `docs/README.md`
 - Quick start verified on a clean machine
 - Backward compatibility confirmed for `image2video.py`

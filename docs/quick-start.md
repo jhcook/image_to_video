@@ -6,7 +6,7 @@ Get up and running with the Multi-Backend Video Generator in 5 minutes.
 
 - Python 3.8 or higher
 - pip (Python package installer)
-- An API key for at least one backend (see [Authentication](reference/authentication.md))
+- An API key for at least one provider (see [Authentication](reference/authentication.md))
 
 ## Installation
 
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 ### 3. Configure API Keys
 
-Choose one or more backends and set the corresponding API key:
+Choose one or more providers and set the corresponding API key:
 
 ```bash
 # For OpenAI Sora
@@ -43,7 +43,7 @@ export AZURE_OPENAI_API_KEY="your-azure-key"
 export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
 
 # For Google Veo (use browser login - easiest)
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 **Tip:** Create a `.env` file to persist your API keys:
@@ -86,39 +86,41 @@ Process all images in a directory:
 ./image2video.py -i "photos/*.jpg" "Create a walkthrough video"
 ```
 
-## Choosing a Backend
+## Choosing a Provider
 
-By default, the script uses OpenAI Sora-2. To use a different backend:
+By default, the script uses OpenAI Sora-2. To use a different provider:
 
 ```bash
 # Use RunwayML Gen-4
-./image2video.py --backend runway "Your prompt"
+./image2video.py --provider runway "Your prompt"
 
 # Use Google Veo-3
-./image2video.py --backend veo3 "Your prompt"
+./image2video.py --provider google "Your prompt"
 
 # Use Azure Sora
-./image2video.py --backend azure-sora "Your prompt"
+./image2video.py --provider azure "Your prompt"
 ```
+
+> **Note:** The `--provider` flag is still supported for backward compatibility but is deprecated. Use `--provider` for new scripts.
 
 ## Model Selection
 
-List available models for a backend:
+List available models for a provider:
 
 ```bash
 ./image2video.py --list-models
 ./image2video.py --list-models runway
-./image2video.py --list-models veo3
+./image2video.py --list-models google
 ```
 
 Choose a specific model:
 
 ```bash
 # Fast generation with Veo
-./image2video.py --backend veo3 --model veo-3.0-fast-generate-001 "Your prompt"
+./image2video.py --provider google --model veo-3.0-fast-generate-001 "Your prompt"
 
 # High quality with RunwayML
-./image2video.py --backend runway --model gen4 -i "photo.jpg" "Your prompt"
+./image2video.py --provider runway --model gen4 -i "photo.jpg" "Your prompt"
 ```
 
 ## Common Use Cases
@@ -168,7 +170,7 @@ The script automatically retries with exponential backoff. Just wait - it will e
 ### Google Veo authentication issues
 ```bash
 # Use the browser login method (easiest)
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 ## Next Steps
@@ -178,7 +180,7 @@ Now that you have the basics working:
 - 📖 Read the **[User Guide](user-guide.md)** for complete documentation
 - 🎯 Learn **[Prompt Engineering](advanced/prompts.md)** techniques
 - 🔗 Try **[Multi-clip Stitching](advanced/stitching.md)** (Veo 3.1)
-- 🔧 Explore backend-specific guides in **[backends/](backends/)**
+- 🔧 Explore provider-specific guides in **[providers/](providers/)**
 - 🛠️ Check **[Troubleshooting](advanced/troubleshooting.md)** for detailed solutions
 
 ## Getting Help

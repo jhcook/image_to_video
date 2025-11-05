@@ -163,5 +163,5 @@ Continuity constraints:
 ## Next Steps
 
 - Try the Stitching Guide for long sequences
-- Explore backend guides for model-specific nuances
+- Explore provider guides for model-specific nuances
 - Build a library of reusable templates for your domain

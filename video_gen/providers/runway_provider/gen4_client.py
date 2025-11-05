@@ -18,6 +18,7 @@ except ImportError:
 from .config import RunwayConfig
 from ...exceptions import InsufficientCreditsError
 from ...logger import get_library_logger
+from ...retry_utils import handle_capacity_retry
 
 
 class RunwayGen4Client:
@@ -402,18 +403,11 @@ class RunwayGen4Client:
 
         Args:
             retry_count: Current retry attempt number
+            
+        Raises:
+            RuntimeError: If user cancels during backoff
         """
-        # Calculate exponential backoff with cap
-        delay = min(self.base_delay * (2 ** retry_count), self.max_delay)
-
-        # Add jitter to prevent thundering herd
-        jitter = delay * self.config.retry_jitter_percent * (random.random() - 0.5)
-        actual_delay = max(1, delay + jitter)
-
-        try:
-            time.sleep(actual_delay)
-        except KeyboardInterrupt:
-            raise RuntimeError("Operation cancelled by user")
+        handle_capacity_retry(retry_count, self.config, self.logger)
 
     def poll_task(self, task_id: str, poll_interval: int = 5) -> Dict[str, Any]:
         """

@@ -1,5 +1,6 @@
 python-dotenv
-openai
-requests  # Required for Veo-3 and RunwayML backends
+openai>=2.7.0  # Version 2.7.0+ supports httpcore 1.0+
+httpx>=0.28.0  # Required for httpcore 1.0+ compatibility
+requests  # Required for Veo-3 and RunwayML providers
 google-auth
 google-auth-oauthlib

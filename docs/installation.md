@@ -91,7 +91,7 @@ Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH.
 
 3. **Verify:**
    ```bash
-   ./image2video.py --backend sora2 --list-models
+   ./image2video.py --provider openai --list-models
    ```
 
 ### Azure AI Foundry Sora
@@ -110,10 +110,10 @@ Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH.
 
 3. **Verify:**
    ```bash
-   ./image2video.py --backend azure-sora --list-models
+   ./image2video.py --provider azure --list-models
    ```
 
-See **[Azure Sora Guide](backends/azure-sora.md)** for detailed setup.
+See **[Azure Sora Guide](providers/azure.md)** for detailed setup.
 
 ### Google Veo
 
@@ -121,7 +121,7 @@ See **[Azure Sora Guide](backends/azure-sora.md)** for detailed setup.
 
 ```bash
 # One-time login
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 This opens a browser for Google authentication and saves your token for future use.
@@ -150,12 +150,12 @@ This opens a browser for Google authentication and saves your token for future u
 
 4. **Verify:**
    ```bash
-   ./image2video.py --backend veo3 --list-models
+   ./image2video.py --provider google --list-models
    ```
 
 **Important:** OAuth tokens expire after 1 hour. Re-run the login command when needed.
 
-See **[Google Veo Guide](backends/google-veo.md)** for detailed authentication.
+See **[Google Veo Guide](providers/google-veo.md)** for detailed authentication.
 
 ### RunwayML
 
@@ -171,14 +171,14 @@ See **[Google Veo Guide](backends/google-veo.md)** for detailed authentication.
 
 3. **Verify:**
    ```bash
-   ./image2video.py --backend runway --list-models
+   ./image2video.py --provider runway --list-models
    ```
 
-See **[RunwayML Guide](backends/runwayml.md)** for detailed setup.
+See **[RunwayML Guide](providers/runwayml.md)** for detailed setup.
 
 ## Environment Variables
 
-For the complete list across all backends, see Reference: [Environment Variables](reference/environment-variables.md).
+For the complete list across all providers, see Reference: [Environment Variables](reference/environment-variables.md).
 
 ### Using .env File (Recommended)
 
@@ -238,9 +238,9 @@ python -c "from video_gen import *; print('✓ Imports successful')"
 
 ```bash
 # Test with actual generation (uses API credits)
-./image2video.py --backend sora2 "Test prompt"
-./image2video.py --backend runway "Test prompt"
-./image2video.py --backend veo3 "Test prompt"
+./image2video.py --provider openai "Test prompt"
+./image2video.py --provider runway "Test prompt"
+./image2video.py --provider google "Test prompt"
 ```
 
 ### Check Logs
@@ -376,7 +376,7 @@ rm -rf image_to_video
 - 🚀 **[Quick Start Guide](quick-start.md)** - Generate your first video
 - 📖 **[User Guide](user-guide.md)** - Complete usage documentation
 - 🔐 **[Authentication Guide](reference/authentication.md)** - Detailed auth setup
-- 🔧 **[Backend Guides](backends/)** - Backend-specific configuration
+- 🔧 **[Backend Guides](providers/)** - Backend-specific configuration
 
 ## Getting Help
 

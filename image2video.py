@@ -3,7 +3,7 @@
 """
 Multi-Backend Video Generator CLI
 
-A modular command-line interface for generating videos using multiple AI backends:
+A modular command-line interface for generating videos using multiple AI providers:
 - Sora-2 (OpenAI)
 - Veo-3 (Google)
 - Runway (Runway ML)
@@ -13,8 +13,8 @@ This script uses a modular architecture for better maintainability and testabili
 Usage:
     ./image2video.py "Your prompt here"
     ./image2video.py -i images/*.jpg "Create a video tour"
-    ./image2video.py --backend veo3 "Generate with Google Veo-3"
-    ./image2video.py --backend runway "Generate with Runway ML"
+    ./image2video.py --provider veo3 "Generate with Google Veo-3"
+    ./image2video.py --provider runway "Generate with Runway ML"
     
 For detailed usage information, run:
     ./image2video.py --help
@@ -34,39 +34,39 @@ load_dotenv()
 # Add the package to the path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from video_gen.config import create_config_for_backend, get_available_backends
+from video_gen.config import create_config_for_provider, get_available_providers
 from video_gen.video_generator import generate_video
 from video_gen.file_handler import FileHandler
 from video_gen.arg_parser import SoraArgumentParser
 from video_gen.logger import init_library_logger
 
 
-def _check_backends_and_display_header():
-    """Check available backends and display application header."""
+def _check_providers_and_display_header():
+    """Check available providers and display application header."""
     print("🎬 Multi-Backend Video Generator")
     print("=" * 50)
     
-    available_backends = get_available_backends()
-    if not available_backends:
-        print("❌ No video generation backends are available!")
+    available_providers = get_available_providers()
+    if not available_providers:
+        print("❌ No video generation providers are available!")
         print("   Please set up API credentials:")
         print("   - For Sora-2: export OPENAI_API_KEY=your_key")
         print("   - For Veo-3: export GOOGLE_API_KEY=your_key")
         print("   - For Runway: export RUNWAY_API_KEY=your_key")
         sys.exit(1)
     
-    print(f"📋 Available backends: {', '.join(available_backends)}")
-    return available_backends
+    print(f"📋 Available providers: {', '.join(available_providers)}")
+    return available_providers
 
 
 def _process_images_and_display_config(args, config):
     """Process image paths and display configuration."""
-    backend = args['backend']
+    provider = args['provider']
     prompt = args['prompt']
     images = args['images']
     stitch = args.get('stitch', False)
     
-    print(f"🎯 Using backend: {backend}")
+    print(f"🎯 Using provider: {provider}")
     
     # In stitch mode, prompt is None and prompts list is used instead
     if not stitch:
@@ -82,7 +82,7 @@ def _process_images_and_display_config(args, config):
         print(f"🖼️  Found {len(file_paths)} image file(s)")
     
     print("\n📋 Configuration:")
-    print(f"   Backend: {backend}")
+    print(f"   Backend: {provider}")
     print(f"   Dimensions: {args['width']}x{args['height']} @ {args['fps']}fps")
     print(f"   Duration: {args['duration']} seconds")
     if args['seed']:
@@ -101,7 +101,7 @@ def _process_images_and_display_config(args, config):
     print("\n🚀 Starting video generation...")
     print("=" * 50)
     
-    return file_paths, backend, prompt
+    return file_paths, provider, prompt
 
 
 def _handle_exceptions(e):
@@ -149,7 +149,7 @@ def _handle_google_cache_clearing():
 
 def _handle_google_authentication(args):
     """Handle Google authentication flow (gcloud or OAuth)."""
-    if args.get('backend') != 'veo3':
+    if args.get('provider') != 'veo3':
         return
     
     if not (args.get('google-login') or args.get('google-login-browser')):
@@ -191,23 +191,23 @@ def _parse_arguments():
 
 def _route_to_workflow(args, config, file_paths):
     """Route to appropriate workflow (stitching or normal mode)."""
-    backend = args['backend']
+    provider = args['provider']
     prompt = args['prompt']
     model = args.get('model')
     
     # Resolve model from args or config default
-    if not model and backend == "runway":
+    if not model and provider == "runway":
         # Get default model from config (which reads RUNWAY_MODEL env var)
         model = getattr(config, 'default_model', None)
     
     # Check if stitching mode is enabled
-    # Support both veo3 backend and runway backend with veo models
-    is_veo_model = (backend == "veo3") or (backend == "runway" and model and model.startswith("veo"))
+    # Support both veo3 provider and runway provider with veo models
+    is_veo_model = (provider == "veo3") or (provider == "runway" and model and model.startswith("veo"))
     
     if is_veo_model and args.get("stitch"):
-        _run_stitching_mode(args, config, file_paths, backend)
+        _run_stitching_mode(args, config, file_paths, provider)
     else:
-        _run_normal_mode(args, config, file_paths, backend, prompt)
+        _run_normal_mode(args, config, file_paths, provider, prompt)
 
 
 def main():
@@ -225,11 +225,11 @@ def main():
     # Google authentication flow (gcloud or OAuth)
     _handle_google_authentication(args)
     
-    _check_backends_and_display_header()
+    _check_providers_and_display_header()
     
     try:
         # args already parsed above, now create config
-        config = create_config_for_backend(args['backend'])
+        config = create_config_for_provider(args['provider'])
         config.validate()
 
         file_paths, _, _ = _process_images_and_display_config(args, config)
@@ -373,10 +373,10 @@ def _validate_and_log_distribution(image_lists, prompts):
     return image_lists
 
 
-def _run_stitching_mode(args, config, file_paths, backend):
+def _run_stitching_mode(args, config, file_paths, provider):
     """Run Veo 3.1 stitching flow with multiple prompts/clips.
     
-    Supports both Google Veo (veo3 backend) and RunwayML Veo (runway backend with veo* models).
+    Supports both Google Veo (veo3 provider) and RunwayML Veo (runway provider with veo* models).
     """
     from video_gen.video_generator import generate_video_sequence_with_veo3_stitching
 
@@ -389,7 +389,7 @@ def _run_stitching_mode(args, config, file_paths, backend):
     resume = args.get("resume", False)
     
     # Determine provider name for display
-    provider_name = "Google Veo 3.1" if backend == "veo3" else f"RunwayML {model}"
+    provider_name = "Google Veo 3.1" if provider == "veo3" else f"RunwayML {model}"
 
     print(f"\n🎬 Stitching Mode: Generating {len(prompts)} clips with seamless transitions")
     print(f"   Provider: {provider_name}")
@@ -414,7 +414,7 @@ def _run_stitching_mode(args, config, file_paths, backend):
         config=config,
         model=model,
         delay_between_clips=args["delay"],
-        backend=backend,
+        provider=provider,
         resume=resume
     )
     print("=" * 50)
@@ -425,12 +425,12 @@ def _run_stitching_mode(args, config, file_paths, backend):
     print(f"   ffmpeg -i \"concat:{'|'.join(outputs)}\" -c copy final_stitched.mp4")
 
 
-def _run_normal_mode(args, config, file_paths, backend, prompt):
+def _run_normal_mode(args, config, file_paths, provider, prompt):
     """Run the standard single-video generation flow."""
     output_path = generate_video(
         prompt=prompt,
         file_paths=file_paths,
-        backend=backend,
+        provider=provider,
         model=args['model'],
         width=args['width'],
         height=args['height'],

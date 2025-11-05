@@ -12,7 +12,7 @@ generate_video(
   prompt: str,
   file_paths: Iterable[Union[str, Path]] = (),
   *,
-  backend: Literal["sora2", "azure-sora", "veo3", "runway"] = "sora2",
+  provider: Literal["openai", "azure", "google", "runway"] = "openai",
   model: Optional[str] = None,
   width: int = 1280,
   height: int = 720,
@@ -25,21 +25,21 @@ generate_video(
 ```
 
 Description:
-- Unified entry point that routes to the selected backend
+- Unified entry point that routes to the selected provider
 - Saves result to `out_path` and returns the file path
 
 Raises:
-- `ValueError` for invalid backend
+- `ValueError` for invalid provider
 - `FileNotFoundError` for missing images
 - `RuntimeError` for API failures
 
 ---
 
-### generate_video_with_sora2
+### generate_video_with_openai
 
 ```
-generate_video_with_sora2(prompt, file_paths=(), width=1280, height=720, fps=24,
-                          duration_seconds=8, seed=None, out_path="sora2_output.mp4",
+generate_video_with_openai(prompt, file_paths=(), width=1280, height=720, fps=24,
+                          duration_seconds=8, seed=None, out_path="openai_output.mp4",
                           config: SoraConfig = None, model: Optional[str] = None) -> str
 ```
 
@@ -61,11 +61,11 @@ generate_video_with_azure_sora(prompt, file_paths=(), width=1280, height=720, fp
 
 ---
 
-### generate_video_with_veo3
+### generate_video_with_google
 
 ```
-generate_video_with_veo3(prompt, file_paths=(), source_frame=None, width=1280, height=720,
-                         fps=24, duration_seconds=8, seed=None, out_path="veo3_output.mp4",
+generate_video_with_google(prompt, file_paths=(), source_frame=None, width=1280, height=720,
+                         fps=24, duration_seconds=8, seed=None, out_path="google_output.mp4",
                          config: Veo3Config = None, model: Optional[str] = None) -> str
 ```
 
@@ -99,16 +99,16 @@ generate_video_with_runway_veo(prompt, reference_images=None, first_frame=None, 
 
 ---
 
-### generate_video_sequence_with_veo3_stitching
+### generate_video_sequence_with_google_stitching
 
 ```
-generate_video_sequence_with_veo3_stitching(prompts, file_paths_list=None, width=1280, height=720,
+generate_video_sequence_with_google_stitching(prompts, file_paths_list=None, width=1280, height=720,
                                             duration_seconds=8, seed=None, out_paths=None, config=None,
-                                            model=None, delay_between_clips=10, backend="veo3") -> List[str]
+                                            model=None, delay_between_clips=10, provider="google") -> List[str]
 ```
 
 - Orchestrates N clips with automatic frame extraction between clips
-- `backend` can be `veo3` (Google) or `runway` (Runway Veo)
+- `provider` can be `google` (Google) or `runway` (Runway Veo)
 
 ---
 
@@ -126,8 +126,8 @@ extract_last_frame_as_png(video_path: str, output_dir: Optional[str] = None) -> 
 - `AzureSoraConfig` (Azure)
 - `Veo3Config` (Google Veo)
 - `RunwayConfig` (RunwayML)
-- `VideoBackend` (Literal type for backends)
-- `create_config_for_backend(backend)` constructor
+- `VideoProvider` (Literal type for providers)
+- `create_config_for_provider(provider)` constructor
 
 All configs support:
 - `from_environment()` to read env and .env
@@ -164,19 +164,19 @@ Domain-specific error types for clearer handling. Common ones include:
 ## Example: Programmatic Use
 
 ```python
-from video_gen.video_generator import generate_video, generate_video_sequence_with_veo3_stitching
+from video_gen.video_generator import generate_video, generate_video_sequence_with_google_stitching
 
 # Simple one-off video
 path = generate_video(
     prompt="Cinematic ocean waves at sunset",
-    backend="sora2",
+    provider="openai",
     width=1920,
     height=1080,
 )
 print(path)
 
 # Seamless stitched sequence (Veo 3.1)
-outputs = generate_video_sequence_with_veo3_stitching(
+outputs = generate_video_sequence_with_google_stitching(
     prompts=["Pan right", "Dolly forward", "Pan left"],
     file_paths_list=[["ref1.jpg", "ref2.jpg"]] * 3,
     model="veo-3.1-fast-generate-preview",

@@ -11,7 +11,7 @@ When using `--stitch` mode, you can control which reference images are used for 
 # Images: foyer1.png, foyer2.png, living1.png, living2.png, kitchen1.png
 # Prompts contain keywords: "foyer", "living", "kitchen"
 
-./image2video.py --backend runway --stitch \
+./image2video.py --provider runway --stitch \
   -i ~/images/foyer*.png ~/images/living*.png ~/images/kitchen*.png \
   -p "Camera pans across the foyer entrance" \
      "Dolly through the living room space" \
@@ -38,7 +38,7 @@ When using `--stitch` mode, you can control which reference images are used for 
 #   living1.png, living2.png, living3.png, living4.png
 #   kitchen1.png, kitchen2.png
 
-./image2video.py --backend runway --stitch \
+./image2video.py --provider runway --stitch \
   -i ~/Downloads/FisherRoad/* \
   -p "$(cat prompts/fr_foyer1.txt)" \
      "$(cat prompts/fr_foyer2.txt)" \
@@ -70,12 +70,12 @@ Create `generate_fisher_road.sh`:
 
 source venv/bin/activate
 
-python image2video.py --backend runway --stitch \
+python image2video.py --provider runway --stitch \
   -i ~/Downloads/FisherRoad/foyer1.png \
      ~/Downloads/FisherRoad/foyer2.png \
   -p "$(cat prompts/fr_foyer1.txt)" \
   && \
-python image2video.py --backend runway --stitch \
+python image2video.py --provider runway --stitch \
   -i ~/Downloads/FisherRoad/living1.png \
      ~/Downloads/FisherRoad/living2.png \
      ~/Downloads/FisherRoad/living3.png \
@@ -92,10 +92,10 @@ cp living*.png clips/living/
 cp kitchen*.png clips/kitchen/
 
 # Generate each clip with specific images
-./image2video.py --backend runway --stitch \
+./image2video.py --provider runway --stitch \
   -i clips/foyer/* -p "$(cat prompts/fr_foyer1.txt)" -o foyer_clip.mp4
 
-./image2video.py --backend runway --stitch \
+./image2video.py --provider runway --stitch \
   -i clips/living/* -p "$(cat prompts/fr_living1.txt)" -o living_clip.mp4
 ```
 
@@ -171,7 +171,7 @@ You can see the image distribution without generating videos:
 
 ```bash
 # Add --help or check the distribution output
-./image2video.py --backend runway --stitch \
+./image2video.py --provider runway --stitch \
   -i ~/Downloads/FisherRoad/* \
   -p "$(cat prompts/fr_foyer1.txt)" \
      "$(cat prompts/fr_living1.txt)" \

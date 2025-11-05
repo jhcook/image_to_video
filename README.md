@@ -1,6 +1,6 @@
 # Multi-Backend Video Generator
 
-A Python application that converts images to videos using multiple AI backends: OpenAI's Sora-2, Azure AI Foundry Sora, Google's Veo-3, and RunwayML's Gen-4 models.
+A Python application that converts images to videos using multiple AI providers: OpenAI's Sora-2, Azure AI Foundry Sora, Google's Veo-3, and RunwayML's Gen-4 models.
 
 ## Features
 
@@ -28,8 +28,8 @@ export RUNWAY_API_KEY="your-key"      # For RunwayML
 # With images
 ./image2video.py -i "photo.jpg" "Animate this scene"
 
-# Choose a backend
-./image2video.py --backend runway "Your prompt"
+# Choose a provider
+./image2video.py --provider runway "Your prompt"
 ```
 
 ## Documentation
@@ -42,12 +42,12 @@ export RUNWAY_API_KEY="your-key"      # For RunwayML
 - **[User Guide](docs/user-guide.md)** - Complete usage documentation
 - **[Installation](docs/installation.md)** - Detailed setup instructions
 
-### Backend Guides
+### Provider Guides
 
-- **[OpenAI Sora](docs/backends/openai-sora.md)** - OpenAI Sora-2 setup
-- **[Azure Sora](docs/backends/azure-sora.md)** - Azure AI Foundry setup
-- **[Google Veo](docs/backends/google-veo.md)** - Google Veo-3 with OAuth
-- **[RunwayML](docs/backends/runwayml.md)** - RunwayML Gen-4 & Veo
+- **[OpenAI Sora](docs/providers/openai-sora.md)** - OpenAI Sora-2 setup
+- **[Azure Sora](docs/providers/azure.md)** - Azure AI Foundry setup
+- **[Google Veo](docs/providers/google-veo.md)** - Google Veo-3 with OAuth
+- **[RunwayML](docs/providers/runwayml.md)** - RunwayML Gen-4 & Veo
 
 ### Advanced Topics
 
@@ -63,9 +63,9 @@ export RUNWAY_API_KEY="your-key"      # For RunwayML
 | **OpenAI Sora** | sora-2, sora-2-pro | Variable | ✅ | ❌ |
 | **Azure Sora** | sora-2, sora-2-pro | \$0.10/sec | ✅ | ❌ |
 | **Google Veo** | veo-3.0, veo-3.1 | \$0.15-0.40 | ✅ | ✅ |
-| **RunwayML** | gen4, gen4_turbo, veo3.x | Variable | Single only | ✅ (Veo) |
+| **RunwayML** | gen4, gen4_turbo, google.x | Variable | Single only | ✅ (Veo) |
 
-See **[Backend Comparison](docs/reference/backend-comparison.md)** for detailed feature matrix.
+See **[Provider Comparison](docs/reference/provider-comparison.md)** for detailed feature matrix.
 
 ## Usage Examples
 
@@ -89,21 +89,21 @@ See **[Backend Comparison](docs/reference/backend-comparison.md)** for detailed 
 ./image2video.py -i "photos/*.jpg" "Create a walkthrough video"
 ```
 
-### Backend Selection
+### Provider Selection
 ```bash
 # Use Google Veo
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview "Your prompt"
+./image2video.py --provider google --model veo-3.1-fast-generate-preview "Your prompt"
 
 # Use RunwayML
-./image2video.py --backend runway --model gen4 "Your prompt"
+./image2video.py --provider runway --model gen4 "Your prompt"
 
 # Use Azure Sora
-./image2video.py --backend azure-sora "Your prompt"
+./image2video.py --provider azure "Your prompt"
 ```
 
 ### Seamless Multi-Clip Stitching (Veo 3.1)
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \\
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \\
   -i reference_images/*.jpg \\
   -p "Camera pans across the foyer" \\
      "Dolly forward into the living room" \\
@@ -140,7 +140,7 @@ See **[Installation Guide](docs/installation.md)** for detailed instructions.
 
 ## Authentication
 
-Each backend requires different authentication:
+Each provider requires different authentication:
 
 Tip: A fully commented template of all required and optional variables is provided in .env.sample. Copy it to .env and edit values as needed.
 
@@ -158,7 +158,7 @@ export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
 ### Google Veo
 ```bash
 # Browser OAuth (easiest)
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 
 # Or manual with gcloud
 gcloud auth application-default login
@@ -186,7 +186,7 @@ image_to_video/
 │   ├── README.md              # Documentation index
 │   ├── quick-start.md         # Quick start guide
 │   ├── user-guide.md          # Complete user guide
-│   ├── backends/              # Backend-specific docs
+│   ├── providers/              # Backend-specific docs
 │   ├── advanced/              # Advanced topics
 │   ├── technical/             # Technical documentation
 │   └── reference/             # Reference materials
@@ -214,8 +214,8 @@ source venv/bin/activate
 # Run the full unittest suite
 python -m unittest discover -s tests -p "test_*.py" -v
 
-# Test specific backend
-./image2video.py --backend sora2 "Test prompt"
+# Test specific provider
+./image2video.py --provider openai "Test prompt"
 ```
 
 ### Contributing
@@ -245,7 +245,7 @@ echo \$RUNWAY_API_KEY
 **Google Veo authentication issues**
 ```bash
 # Use browser OAuth (easiest method)
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 See **[Troubleshooting Guide](docs/advanced/troubleshooting.md)** for complete solutions.

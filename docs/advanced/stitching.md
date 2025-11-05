@@ -11,7 +11,7 @@ Stitching generates a sequence of short clips where each clip’s last frame bec
 
 - Works with: Veo 3.1 models only
   - Google: `veo-3.1-fast-generate-preview`, `veo-3.1-generate-preview`
-  - Runway: `veo3.1_fast`, `veo3.1`
+  - Runway: `google.1_fast`, `google.1`
 - Not supported by: Sora-2, Runway Gen-4
 
 ## Command-Line Workflow
@@ -19,7 +19,7 @@ Stitching generates a sequence of short clips where each clip’s last frame bec
 Minimal example:
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "refs/*.jpg" \
   -p "Clip 1: Opening movement" \
      "Clip 2: Continue movement" \
@@ -29,17 +29,17 @@ Minimal example:
   **💡 Tip:** By default, all images are shared across all clips. For more control over which images are used for each clip, see the **[Image Grouping Guide](image-grouping-quick.md)**.
 
 Outputs:
-- `veo3_clip_2.mp4` → Used to derive the first frame of clip 3
-- `veo3_clip_3.mp4`
+- `google_clip_2.mp4` → Used to derive the first frame of clip 3
+- `google_clip_3.mp4`
 
 Concatenate:
 
 ```bash
 # Direct concat (fast)
-ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4" -c copy final.mp4
+ffmpeg -i "concat:google_clip_1.mp4|google_clip_2.mp4|google_clip_3.mp4" -c copy final.mp4
 
 # Or concat demuxer (robust)
-printf "file 'veo3_clip_1.mp4'\nfile 'veo3_clip_2.mp4'\nfile 'veo3_clip_3.mp4'\n" > concat.txt
+printf "file 'google_clip_1.mp4'\nfile 'google_clip_2.mp4'\nfile 'google_clip_3.mp4'\n" > concat.txt
 ffmpeg -f concat -safe 0 -i concat.txt -c copy final.mp4
 ```
 
@@ -48,7 +48,7 @@ ffmpeg -f concat -safe 0 -i concat.txt -c copy final.mp4
 Generate programmatically for more control:
 
 ```python
-from video_gen.video_generator import generate_video_sequence_with_veo3_stitching
+from video_gen.video_generator import generate_video_sequence_with_google_stitching
 
 prompts = [
   "Entrance: slow pan right revealing staircase",
@@ -62,7 +62,7 @@ prompts = [
 # Same reference images for all clips
 file_paths_list = [["ref1.jpg", "ref2.jpg"]] * len(prompts)
 
-outputs = generate_video_sequence_with_veo3_stitching(
+outputs = generate_video_sequence_with_google_stitching(
   prompts=prompts,
   file_paths_list=file_paths_list,
   width=1280,
@@ -116,7 +116,7 @@ file_paths_list = [
 - Works well for animated or abstract sequences
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -p "An empty stage; lights slowly rise" \
      "Curtains pull back; pan to the right" \
      "Spotlight reveals the lead; push in" \
@@ -170,6 +170,6 @@ Review and adapt it to your needs if present in the repo.
 
 ## Next Steps
 
-- See backends/google-veo.md and backends/runwayml.md for stitching-ready models
+- See providers/google-veo.md and providers/runwayml.md for stitching-ready models
 - Practice with 3–4 clips, then scale to 6–10 for long sequences
 - Combine with the Prompt Guide for cinematic results

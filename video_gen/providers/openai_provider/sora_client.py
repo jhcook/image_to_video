@@ -14,6 +14,7 @@ except ImportError:
     OpenAI = None
 
 from ...logger import get_library_logger
+from ...retry_utils import handle_capacity_retry
 from .config import SoraConfig
 
 
@@ -127,8 +128,7 @@ class SoraAPIClient:
                 
                 # Handle other errors that shouldn't trigger retry
                 elif "404" in error_str or "not found" in error_str.lower():
-                    self.logger.error("Sora-2 model not found")
-                    raise RuntimeError("Sora-2 model not found. Please check if you have access to the Sora API.")
+                    self._handle_model_not_found_error(selected_model, error_str)
                 elif "401" in error_str or "unauthorized" in error_str.lower():
                     self.logger.error(
                         "Authentication failed (401 Unauthorized). This usually means:\n"
@@ -148,6 +148,59 @@ class SoraAPIClient:
                     self.logger.error(f"Unexpected API error: {e}")
                     raise RuntimeError(f"API Error: {e}")
     
+    def _handle_model_not_found_error(self, model: str, error_str: str) -> None:
+        """
+        Handle model not found error with helpful guidance.
+        
+        Args:
+            model: The model that was not found
+            error_str: The error string from the API
+            
+        Raises:
+            RuntimeError: Always, with detailed error message
+        """
+        self.logger.error(f"Sora model not found: {model}")
+        
+        # Try to get available models from the API
+        available_models = []
+        try:
+            models = self.client.models.list()
+            available_models = [m.id for m in models.data if m.id.startswith("sora")]
+        except Exception:
+            # Fall back to common models if API query fails
+            available_models = ["sora-2", "sora-2-pro"]
+        
+        error_msg = (
+            f"\n{'='*60}\n"
+            f"❌ Model Not Found: '{model}'\n"
+            f"{'='*60}\n\n"
+            f"The model '{model}' does not exist or you do not have access to it.\n\n"
+        )
+        
+        if available_models:
+            error_msg += "✅ Available models in your account:\n"
+            for m in available_models:
+                error_msg += f"   • {m}\n"
+            error_msg += "\nTo use an available model:\n"
+            error_msg += f"   ./image2video.py --provider openai --model {available_models[0]} -p \"Your prompt\"\n\n"
+        else:
+            error_msg += "⚠️  Could not retrieve available models from your account.\n\n"
+        
+        error_msg += (
+            "Common reasons:\n"
+            "  1. Model name typo - Check spelling and use --list-models\n"
+            "  2. Sora access not enabled - Visit https://platform.openai.com/\n"
+            "  3. Model requires waitlist approval\n"
+            "  4. Using wrong API key (check OPENAI_API_KEY)\n\n"
+            "To see all available models:\n"
+            "   ./image2video.py --list-models openai\n\n"
+            f"Original API error:\n"
+            f"   {error_str}\n"
+            f"{'='*60}"
+        )
+        
+        raise RuntimeError(error_msg)
+    
     def _handle_capacity_retry(self, retry_count: int) -> None:
         """
         Handle capacity retry with exponential backoff.
@@ -156,25 +209,9 @@ class SoraAPIClient:
             retry_count: Current retry attempt number
             
         Raises:
-            KeyboardInterrupt: If user cancels during backoff
+            RuntimeError: If user cancels during backoff
         """
-        # Calculate delay with exponential backoff and jitter
-        delay = min(
-            self.config.retry_base_delay * (2 ** min(retry_count - 1, 4)),
-            self.config.retry_max_delay
-        )
-        
-        # Add random jitter to avoid thundering herd
-        jitter = delay * self.config.retry_jitter_percent * (random.random() - 0.5)
-        actual_delay = max(1, delay + jitter)
-        
-        self.logger.info(f"Waiting {actual_delay:.1f}s before retry {retry_count}...")
-        
-        try:
-            time.sleep(actual_delay)
-        except KeyboardInterrupt:
-            self.logger.warning("Operation cancelled by user")
-            raise RuntimeError("Operation cancelled by user")
+        handle_capacity_retry(retry_count, self.config, self.logger)
     
     def poll_async_job(self, response: Any) -> Any:
         """

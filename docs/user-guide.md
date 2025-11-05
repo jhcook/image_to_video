@@ -6,7 +6,7 @@ Complete guide to using the Multi-Backend Video Generator.
 
 - [Overview](#overview)
 - [Basic Usage](#basic-usage)
-- [Backend Selection](#backend-selection)
+- [Backend Selection](#provider-selection)
 - [Model Selection](#model-selection)
 - [Image Input](#image-input)
 - [Video Parameters](#video-parameters)
@@ -25,7 +25,7 @@ The Multi-Backend Video Generator supports four powerful AI video generation ser
 - **Google Veo-3**: Advanced video generation with seamless stitching capabilities
 - **RunwayML**: Fast Gen-4 models plus access to Google Veo via simpler API
 
-Each backend has unique features, pricing, and authentication requirements. This guide covers everything you need to know.
+Each provider has unique features, pricing, and authentication requirements. This guide covers everything you need to know.
 
 ## Basic Usage
 
@@ -57,7 +57,7 @@ Before generating videos, ensure you have:
 **Output:**
 ```
 Loading configuration from environment and .env file...
-Using backend: sora2
+Using provider: openai
 Using model: sora-2
 Video generation parameters:
   Prompt: A serene lake at sunset with gentle waves
@@ -66,31 +66,33 @@ Video generation parameters:
   Resolution: 1920x1080
 
 Generating video...
-Video generated successfully: sora2_video_20250127_143022.mp4
+Video generated successfully: openai_video_20250127_143022.mp4
 ```
 
-## Backend Selection
+## Provider Selection
 
-Use the `--backend` flag to choose your AI provider:
+Use the `--provider` flag to choose your AI provider:
 
 ```bash
 # OpenAI Sora (default)
 ./image2video.py "Prompt"
 
 # Or explicitly:
-./image2video.py --backend sora2 "Prompt"
+./image2video.py --provider openai "Prompt"
 
 # Azure AI Foundry Sora
-./image2video.py --backend azure-sora "Prompt"
+./image2video.py --provider azure "Prompt"
 
 # Google Veo
-./image2video.py --backend veo3 "Prompt"
+./image2video.py --provider google "Prompt"
 
 # RunwayML Gen-4
-./image2video.py --backend runway "Prompt"
+./image2video.py --provider runway "Prompt"
 ```
 
-### Backend Comparison
+> **Note:** The `--provider` flag is deprecated but still works for backward compatibility. Use `--provider` in new scripts.
+
+### Provider Comparison
 
 | Feature | Sora-2 | Azure Sora | Veo-3 | RunwayML |
 |---------|--------|------------|-------|----------|
@@ -102,7 +104,7 @@ Use the `--backend` flag to choose your AI provider:
 | **Enterprise Features** | ❌ No | ✅ Yes | ❌ No | ❌ No |
 | **Pricing** | Variable | Variable | $0.15-$0.40/video | Variable |
 
-### Choosing the Right Backend
+### Choosing the Right Provider
 
 **Use Sora-2 (OpenAI) when:**
 - You want the simplest setup (just an API key)
@@ -130,19 +132,19 @@ Use the `--backend` flag to choose your AI provider:
 
 ## Model Selection
 
-Each backend offers multiple models optimized for different use cases.
+Each provider offers multiple models optimized for different use cases.
 
 ### Listing Available Models
 
 ```bash
-# Show all models for all backends
+# Show all models for all providers
 ./image2video.py --list-models
 
-# Show models for specific backend
-./image2video.py --list-models sora2
-./image2video.py --list-models veo3
+# Show models for specific provider
+./image2video.py --list-models openai
+./image2video.py --list-models google
 ./image2video.py --list-models runway
-./image2video.py --list-models azure-sora
+./image2video.py --list-models azure
 ```
 
 ### Model Characteristics
@@ -150,43 +152,43 @@ Each backend offers multiple models optimized for different use cases.
 **Sora-2 (OpenAI/Azure):**
 ```bash
 # Standard quality
-./image2video.py --backend sora2 --model sora-2 "Prompt"
+./image2video.py --provider openai --model sora-2 "Prompt"
 
 # Advanced quality (higher cost)
-./image2video.py --backend sora2 --model sora-2-pro "Prompt"
+./image2video.py --provider openai --model sora-2-pro "Prompt"
 ```
 
 **Veo-3 (Google):**
 ```bash
 # Standard quality - $0.40 per video
-./image2video.py --backend veo3 --model veo-3.0-generate-001 "Prompt"
+./image2video.py --provider google --model veo-3.0-generate-001 "Prompt"
 
 # Fast generation - $0.15 per video
-./image2video.py --backend veo3 --model veo-3.0-fast-generate-001 "Prompt"
+./image2video.py --provider google --model veo-3.0-fast-generate-001 "Prompt"
 
 # Veo 3.1 (stitching support) - $0.15 per video
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview "Prompt"
+./image2video.py --provider google --model veo-3.1-fast-generate-preview "Prompt"
 ```
 
 **RunwayML Gen-4:**
 ```bash
 # Fast generation (default)
-./image2video.py --backend runway --model gen4_turbo "Prompt"
+./image2video.py --provider runway --model gen4_turbo "Prompt"
 
 # High quality
-./image2video.py --backend runway --model gen4 "Prompt"
+./image2video.py --provider runway --model gen4 "Prompt"
 ```
 
 **RunwayML Veo (Google via Runway):**
 ```bash
 # Veo 3.0 - Standard quality
-./image2video.py --backend runway --model veo3 "Prompt"
+./image2video.py --provider runway --model google "Prompt"
 
 # Veo 3.1 - Latest quality
-./image2video.py --backend runway --model veo3.1 "Prompt"
+./image2video.py --provider runway --model google.1 "Prompt"
 
 # Veo 3.1 Fast - Best balance
-./image2video.py --backend runway --model veo3.1_fast "Prompt"
+./image2video.py --provider runway --model google.1_fast "Prompt"
 ```
 
 ### Model Selection Tips
@@ -205,6 +207,8 @@ Each backend offers multiple models optimized for different use cases.
 - Use Veo 3.1 models with `--stitch` flag
 - Seamless multi-clip generation
 - Automatic frame transitions
+
+> **Tip:** Use `./image2video.py --list-models` to see all available models and their descriptions.
 
 ## Image Input
 
@@ -274,7 +278,7 @@ The AI uses images as spatial and style references. Order them logically:
 
 ### Duration
 
-**Flexible backends** (Sora, Veo):
+**Flexible providers** (Sora, Veo):
 ```bash
 ./image2video.py --duration 5 "Prompt"   # 5 seconds
 ./image2video.py --duration 10 "Prompt"  # 10 seconds
@@ -283,8 +287,8 @@ The AI uses images as spatial and style references. Order them logically:
 
 **RunwayML** (fixed durations):
 ```bash
-./image2video.py --backend runway --duration 5 "Prompt"   # 5 seconds
-./image2video.py --backend runway --duration 10 "Prompt"  # 10 seconds
+./image2video.py --provider runway --duration 5 "Prompt"   # 5 seconds
+./image2video.py --provider runway --duration 10 "Prompt"  # 10 seconds
 # Note: Other values auto-adjust to 5s
 ```
 
@@ -322,7 +326,7 @@ The AI uses images as spatial and style references. Order them logically:
 ./image2video.py --loop true "Prompt"
 ```
 
-**Note:** Parameter support varies by backend. Check documentation for specific capabilities.
+**Note:** Parameter support varies by provider. Check documentation for specific capabilities.
 
 ## Multi-Clip Stitching
 
@@ -332,7 +336,7 @@ Veo 3.1 models support seamless multi-clip generation where each clip's last fra
 
 **Single command for multiple clips:**
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "reference/*.jpg" \
   -p "Clip 1 prompt" "Clip 2 prompt" "Clip 3 prompt"
 ```
@@ -342,18 +346,18 @@ Veo 3.1 models support seamless multi-clip generation where each clip's last fra
 2. Extracts last frame from clip 1
 3. Generates clip 2 using last frame + reference images
 4. Repeats for all clips
-5. Outputs: `veo3_clip_1.mp4`, `veo3_clip_2.mp4`, etc.
+5. Outputs: `google_clip_1.mp4`, `google_clip_2.mp4`, etc.
 
 ### Concatenating Clips
 
 **Combine clips into final video:**
 ```bash
 # Method 1: Direct concatenation (fast, no re-encoding)
-ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4" \
+ffmpeg -i "concat:google_clip_1.mp4|google_clip_2.mp4|google_clip_3.mp4" \
   -c copy final_video.mp4
 
 # Method 2: Using concat demuxer (more reliable)
-printf "file 'veo3_clip_1.mp4'\nfile 'veo3_clip_2.mp4'\nfile 'veo3_clip_3.mp4'\n" > concat.txt
+printf "file 'google_clip_1.mp4'\nfile 'google_clip_2.mp4'\nfile 'google_clip_3.mp4'\n" > concat.txt
 ffmpeg -f concat -safe 0 -i concat.txt -c copy final_video.mp4
 ```
 
@@ -361,7 +365,7 @@ ffmpeg -f concat -safe 0 -i concat.txt -c copy final_video.mp4
 
 No reference images required:
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -p "A serene lake at dawn" \
      "The sun rises over the mountains" \
      "Birds fly across the water" \
@@ -372,7 +376,7 @@ No reference images required:
 
 For programmatic control:
 ```python
-from video_gen.video_generator import generate_video_sequence_with_veo3_stitching
+from video_gen.video_generator import generate_video_sequence_with_google_stitching
 
 prompts = [
     "Entrance hall with staircase",
@@ -392,7 +396,7 @@ file_paths_list = [
     ["window.jpg"]
 ]
 
-outputs = generate_video_sequence_with_veo3_stitching(
+outputs = generate_video_sequence_with_google_stitching(
     prompts=prompts,
     file_paths_list=file_paths_list,
     width=1280,
@@ -420,13 +424,14 @@ See **[Advanced Stitching Guide](advanced/stitching.md)** for detailed technique
 **Image Input:**
 - `-i, --images PATH` - Image files (comma-separated, wildcards, or mixed)
 
-**Backend Selection:**
-- `--backend {sora2|azure-sora|veo3|runway}` - Choose AI provider (default: sora2)
-- `--model MODEL_NAME` - Specific model within backend
-- `--list-models [BACKEND]` - List available models
+**Provider Selection:**
+- `--provider {openai|azure|google|runway}` - Choose AI provider (default: openai)
+- `--model MODEL_NAME` - Specific model within provider
+- `--list-models [PROVIDER]` - List available models
+- `--provider` - (Deprecated) Legacy alias for `--provider`
 
 **Video Parameters:**
-- `--duration SECONDS` - Video length (5-15s, backend dependent)
+- `--duration SECONDS` - Video length (5-15s, provider dependent)
 - `--width PIXELS` - Output width (default: 1920)
 - `--height PIXELS` - Output height (default: 1080)
 - `--seed NUMBER` - Random seed for reproducibility
@@ -455,9 +460,9 @@ See **[Advanced Stitching Guide](advanced/stitching.md)** for detailed technique
 ./image2video.py -i "cat.jpg" "The cat chasing the yarn ball"
 ```
 
-**Specific backend and model:**
+**Specific provider and model:**
 ```bash
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   -i "scene.jpg" "Cinematic pan across the landscape"
 ```
 
@@ -469,7 +474,7 @@ See **[Advanced Stitching Guide](advanced/stitching.md)** for detailed technique
 
 **Multi-clip stitching:**
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "refs/*.jpg" \
   -p "Opening shot" "Middle transition" "Final reveal"
 ```
@@ -478,7 +483,7 @@ See **[Advanced Stitching Guide](advanced/stitching.md)** for detailed technique
 
 ### Environment Variables
 
-For a full configuration matrix per backend, see Reference: [Environment Variables](reference/environment-variables.md).
+For a full configuration matrix per provider, see Reference: [Environment Variables](reference/environment-variables.md).
 
 The tool reads configuration from environment variables and `.env` files.
 
@@ -507,9 +512,9 @@ export OPENAI_API_KEY="sk-proj-xxxxx"
 export RUNWAY_API_KEY="your-key"
 ```
 
-### Per-Backend Configuration
+### Per-Provider Configuration
 
-**Sora-2:**
+**Sora-2 (OpenAI):**
 - Only requires `OPENAI_API_KEY`
 - Works with standard OpenAI API
 
@@ -517,7 +522,7 @@ export RUNWAY_API_KEY="your-key"
 - Requires `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT`
 - Optionally set `AZURE_OPENAI_API_VERSION` (defaults to 2024-10-01-preview)
 
-**Veo-3:**
+**Veo-3 (Google):**
 - **Must set** `GOOGLE_CLOUD_PROJECT` (project ID)
 - Token via `--google-login` (recommended) or `gcloud auth`
 - Tokens expire after 1 hour
@@ -625,7 +630,7 @@ export RUNWAY_API_KEY="your-key"
 ### Example 1: Simple Product Showcase
 
 ```bash
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   -i "product_hero.jpg" \
   "360 degree rotation of the product on a white background, \
    soft studio lighting, smooth continuous motion"
@@ -634,7 +639,7 @@ export RUNWAY_API_KEY="your-key"
 ### Example 2: Real Estate Walkthrough (Multi-Clip)
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "entrance.jpg,living.jpg,kitchen.jpg,bedroom.jpg" \
   -p "Slow dolly through the entrance hall toward the living room" \
      "Pan left across the living room showing modern furniture and windows" \
@@ -642,14 +647,14 @@ export RUNWAY_API_KEY="your-key"
      "Final pan right revealing the master bedroom with king bed"
 
 # Combine clips
-ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4|veo3_clip_4.mp4" \
+ffmpeg -i "concat:google_clip_1.mp4|google_clip_2.mp4|google_clip_3.mp4|google_clip_4.mp4" \
   -c copy house_tour.mp4
 ```
 
 ### Example 3: Social Media Content
 
 ```bash
-./image2video.py --backend sora2 --model sora-2 \
+./image2video.py --provider openai --model sora-2 \
   --width 1080 --height 1920 \
   -i "before.jpg,after.jpg" \
   "Smooth transition from before to after, revealing the transformation, \
@@ -659,7 +664,7 @@ ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4|veo3_clip_4.mp
 ### Example 4: Artistic Vision
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.0-generate-001 \
+./image2video.py --provider google --model veo-3.0-generate-001 \
   -i "artwork/*.jpg" \
   "A dream-like journey through surreal landscapes, \
    floating camera movement, ethereal lighting, \
@@ -674,14 +679,14 @@ ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4|veo3_clip_4.mp
 
 for img in photos/*.jpg; do
   prompt="Cinematic reveal of the landscape, slow pan right, golden hour lighting"
-  ./image2video.py --backend runway --model gen4_turbo -i "$img" "$prompt"
+  ./image2video.py --provider runway --model gen4_turbo -i "$img" "$prompt"
 done
 ```
 
 ### Example 6: High-Quality Production
 
 ```bash
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   --width 3840 --height 2160 \
   --duration 10 \
   -i "hero_shot_1.jpg,hero_shot_2.jpg,hero_shot_3.jpg" \
@@ -693,7 +698,7 @@ done
 
 ## Next Steps
 
-- 📖 **[Backend Guides](backends/)** - Detailed setup for each provider
+- 📖 **[Backend Guides](providers/)** - Detailed setup for each provider
 - 🎨 **[Prompt Engineering](advanced/prompts.md)** - Master prompt writing
 - 🔗 **[Stitching Guide](advanced/stitching.md)** - Advanced multi-clip techniques
 - 🔧 **[Troubleshooting](advanced/troubleshooting.md)** - Solve common issues

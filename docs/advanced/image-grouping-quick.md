@@ -8,7 +8,7 @@
 # Your prompts: fr_foyer1.txt, fr_living1.txt, fr_kitchen1.txt
 # Auto-detects: fr_foyer → foyer*.png, fr_living → living*.png
 
-./image2video.py --backend runway --stitch \
+./image2video.py --provider runway --stitch \
   -i ~/Downloads/FisherRoad/* \
   -p "$(cat prompts/fr_foyer1.txt)" \
      "$(cat prompts/fr_living1.txt)" \
@@ -34,19 +34,19 @@ Edit `generate_fisher_road.sh` to customize which images go with each clip.
 # Generate each clip separately with exact images
 
 # Foyer clip: uses only foyer1 and foyer2
-python image2video.py --backend runway \
+python image2video.py --provider runway \
   -i foyer1.png foyer2.png \
   -p "$(cat prompts/fr_foyer1.txt)" \
   -o foyer_clip.mp4
 
 # Living room clip: uses living1, living2, living3
-python image2video.py --backend runway \
+python image2video.py --provider runway \
   -i living1.png living2.png living3.png \
   -p "$(cat prompts/fr_living1.txt)" \
   -o living_clip.mp4
 
 # Kitchen clip: uses both kitchen images
-python image2video.py --backend runway \
+python image2video.py --provider runway \
   -i kitchen1.png kitchen2.png \
   -p "$(cat prompts/fr_kitchen1.txt)" \
   -o kitchen_clip.mp4
@@ -77,7 +77,7 @@ Supported keywords: `foyer`, `living`, `kitchen`, `garage`, `bedroom`, `bathroom
 ```bash
 # See what will be used without generating (saves API credits!)
 source venv/bin/activate
-python image2video.py --backend runway --stitch \
+python image2video.py --provider runway --stitch \
   -i ~/Downloads/FisherRoad/* \
   -p "test1" "test2" "test3" \
   2>&1 | head -50

@@ -18,6 +18,7 @@ except ImportError:
 from .config import RunwayConfig
 from ...exceptions import InsufficientCreditsError
 from ...logger import get_library_logger
+from ...retry_utils import handle_capacity_retry
 
 
 class RunwayVeoClient:
@@ -384,7 +385,7 @@ class RunwayVeoClient:
                     "RunwayML: insufficient credits to create a Veo task.\n"
                     "Next steps:\n"
                     "  • Add credits in your Runway account: https://app.runwayml.com/settings/billing\n"
-                    "  • Or switch backend/model (e.g., --backend veo3 to use Google Veo directly)\n"
+                    "  • Or switch provider/model (e.g., --provider veo3 to use Google Veo directly)\n"
                     "  • Or reduce the number/length of clips and retry\n"
                 ),
                 provider="runway"
@@ -399,7 +400,7 @@ class RunwayVeoClient:
                 f"  2. Model '{model_name}' may not support the requested parameters\n"
                 f"  3. Incompatible combination of firstKeyframe/referenceImages\n\n"
                 f"API Error: {error_text[:500]}\n\n"
-                f"Try: --backend veo3 (native Google Veo API) as an alternative"
+                f"Try: --provider veo3 (native Google Veo API) as an alternative"
             )
         
         raise RuntimeError(
@@ -471,18 +472,11 @@ class RunwayVeoClient:
 
         Args:
             retry_count: Current retry attempt number
+            
+        Raises:
+            RuntimeError: If user cancels during backoff
         """
-        # Calculate exponential backoff with cap
-        delay = min(self.base_delay * (2 ** retry_count), self.max_delay)
-
-        # Add jitter to prevent thundering herd
-        jitter = delay * self.config.retry_jitter_percent * (random.random() - 0.5)
-        actual_delay = max(1, delay + jitter)
-
-        try:
-            time.sleep(actual_delay)
-        except KeyboardInterrupt:
-            raise RuntimeError("Operation cancelled by user")
+        handle_capacity_retry(retry_count, self.config, self.logger)
 
     def poll_task(self, task_id: str, poll_interval: int = 5) -> Dict[str, Any]:
         """

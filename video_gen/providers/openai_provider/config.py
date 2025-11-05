@@ -30,7 +30,7 @@ class SoraConfig:
     default_height: int = 720
     default_fps: int = 24
     default_duration: int = 8
-    default_output: str = "sora2_output.mp4"
+    default_output: str = "openai_output.mp4"
     
     # Retry configuration
     retry_base_delay: int = 30      # Initial retry delay in seconds

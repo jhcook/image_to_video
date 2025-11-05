@@ -24,21 +24,21 @@ Add more tests as needed using `unittest` or `pytest`.
 
 ## Manual Integration Tests
 
-These tests exercise real backends (costs may apply):
+These tests exercise real providers (costs may apply):
 
 ```bash
 # Sora-2 (OpenAI)
-./image2video.py --backend sora2 "Simple prompt"
+./image2video.py --provider openai "Simple prompt"
 
 # Azure Sora
-./image2video.py --backend azure-sora "Simple prompt"
+./image2video.py --provider azure "Simple prompt"
 
 # Veo-3 (Google)
-./image2video.py --backend veo3 --google-login
-./image2video.py --backend veo3 --model veo-3.0-fast-generate-001 "Simple prompt"
+./image2video.py --provider google --google-login
+./image2video.py --provider google --model veo-3.0-fast-generate-001 "Simple prompt"
 
 # RunwayML (Gen-4)
-./image2video.py --backend runway --model gen4_turbo "Simple prompt"
+./image2video.py --provider runway --model gen4_turbo "Simple prompt"
 ```
 
 ### Image-to-Video
@@ -52,11 +52,11 @@ mkdir -p test_images
 ### Stitching (Veo 3.1)
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "refs/*.jpg" \
   -p "Clip 1" "Clip 2" "Clip 3"
 
-ffmpeg -f concat -safe 0 -i <(printf "file 'veo3_clip_1.mp4'\nfile 'veo3_clip_2.mp4'\nfile 'veo3_clip_3.mp4'\n") -c copy final.mp4
+ffmpeg -f concat -safe 0 -i <(printf "file 'google_clip_1.mp4'\nfile 'google_clip_2.mp4'\nfile 'google_clip_3.mp4'\n") -c copy final.mp4
 ```
 
 ## Developer Workflows
@@ -67,7 +67,7 @@ ffmpeg -f concat -safe 0 -i <(printf "file 'veo3_clip_1.mp4'\nfile 'veo3_clip_2.
 2. Install deps: `pip install -r requirements.txt`
 3. Run quick commands:
    - `./image2video.py --list-models`
-   - `./image2video.py --backend runway "Hello"`
+   - `./image2video.py --provider runway "Hello"`
 4. Review `logs/video_gen.log` (DEBUG)
 
 ### Code Quality
@@ -79,7 +79,7 @@ ffmpeg -f concat -safe 0 -i <(printf "file 'veo3_clip_1.mp4'\nfile 'veo3_clip_2.
 ## Troubleshooting Tests
 
 - Missing modules → activate venv and reinstall requirements
-- Auth errors → verify environment variables and backend guides
+- Auth errors → verify environment variables and provider guides
 - ffmpeg not found → install via Homebrew or your package manager
 
 ## CI Suggestions (optional)

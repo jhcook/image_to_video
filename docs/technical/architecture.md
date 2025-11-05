@@ -1,11 +1,11 @@
 # Architecture
 
-High-level overview of the modular, multi-backend architecture.
+High-level overview of the modular, multi-provider architecture.
 
 ## Goals
 
 - Clean separation of concerns
-- Pluggable provider backends
+- Pluggable provider providers
 - Library-first design with a simple CLI
 - Strong logging and robust retries
 
@@ -13,7 +13,7 @@ High-level overview of the modular, multi-backend architecture.
 
 ```
 image_to_video/
-├── image2video.py          # CLI entry point (multi-backend)
+├── image2video.py          # CLI entry point (multi-provider)
 ├── image2video_mono.py     # Legacy monolith (Sora-only)
 ├── docs/                   # Documentation hub
 └── video_gen/              # Core library package
@@ -38,13 +38,13 @@ image_to_video/
 
 - Public API surface for programmatic use:
   - `generate_video(...)`
-  - `generate_video_with_sora2(...)`
+  - `generate_video_with_openai(...)`
   - `generate_video_with_azure_sora(...)`
-  - `generate_video_with_veo3(...)`
+  - `generate_video_with_google(...)`
   - `generate_video_with_runway(...)`
   - `generate_video_with_runway_veo(...)`
   - Stitching helpers for Veo 3.1:
-    - `generate_video_sequence_with_veo3_stitching(...)`
+    - `generate_video_sequence_with_google_stitching(...)`
     - `extract_last_frame_as_png(...)`
 - Routes requests to provider clients
 - Applies cross-cutting concerns (logging, defaults, validation)
@@ -58,9 +58,9 @@ Provider-specific clients and configs.
 - azure_provider/
   - `sora_client.py`, `config.py`
 - google_provider/
-  - `veo3_client.py`, `config.py`, optional `auth.py`
+  - `google_client.py`, `config.py`, optional `auth.py`
 - runway_provider/
-  - `gen4_client.py` (Gen-4), `veo3_client.py` (Veo via Runway), `config.py`
+  - `gen4_client.py` (Gen-4), `google_client.py` (Veo via Runway), `config.py`
 
 Each client implements:
 - Construct requests from normalized parameters
@@ -69,9 +69,9 @@ Each client implements:
 
 ### video_gen/config.py
 
-- Typed config objects per backend (e.g., `SoraConfig`, `AzureSoraConfig`, `Veo3Config`, `RunwayConfig`)
+- Typed config objects per provider (e.g., `SoraConfig`, `AzureSoraConfig`, `Veo3Config`, `RunwayConfig`)
 - `from_environment()` readers load from env + .env with validation
-- `create_config_for_backend(backend)` convenience factory
+- `create_config_for_provider(provider)` convenience factory
 
 ### video_gen/file_handler.py
 
@@ -81,8 +81,8 @@ Each client implements:
 
 ### video_gen/arg_parser.py
 
-- CLI parsing with consistent flags across backends
-- `--backend`, `--model`, `--list-models`, `--stitch`, `--google-login`, etc.
+- CLI parsing with consistent flags across providers
+- `--provider`, `--model`, `--list-models`, `--stitch`, `--google-login`, etc.
 - Generates helpful usage text and examples
 
 ### video_gen/logger.py
@@ -94,7 +94,7 @@ Each client implements:
 ## Data Flow (Happy Path)
 
 1. CLI parses options → structured args
-2. Config loads from env/.env for selected backend
+2. Config loads from env/.env for selected provider
 3. FileHandler validates/encodes/uploads images where needed
 4. Provider client sends request with normalized parameters
 5. API returns job or result; client handles polling if required

@@ -14,6 +14,7 @@ from pathlib import Path
 from openai import AzureOpenAI
 
 from .config import AzureSoraConfig
+from ...retry_utils import handle_capacity_retry
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -152,14 +153,39 @@ class AzureSoraAPIClient:
     def _handle_fatal_error(self, error_str: str, exception: Exception) -> None:
         """Handle non-retryable API errors."""
         if "404" in error_str or "not found" in error_str.lower():
-            self.logger.error("Sora model not found in Azure deployment")
-            raise RuntimeError(
-                "Sora model not found in your Azure AI Foundry deployment.\n"
-                "Please check:\n"
-                "1. Your Azure OpenAI resource has Sora models deployed\n"
-                "2. The deployment name matches the model name (sora-2 or sora-2-pro)\n"
-                "3. Visit https://ai.azure.com/ to manage your deployments"
+            # Extract model name from error if possible
+            model_name = "Unknown"
+            if "model" in error_str.lower():
+                # Try to extract model name from error message
+                import re
+                match = re.search(r'model[`\s]+["\']?([\w.-]+)', error_str, re.IGNORECASE)
+                if match:
+                    model_name = match.group(1)
+            
+            self.logger.error(f"Sora model not found in Azure deployment: {model_name}")
+            
+            error_msg = (
+                f"\n{'='*60}\n"
+                f"❌ Model Not Found in Azure: '{model_name}'\n"
+                f"{'='*60}\n\n"
+                "The model is not deployed in your Azure AI Foundry resource.\n\n"
+                "Common models available:\n"
+                "   • sora-1 (if deployed)\n"
+                "   • sora-2 (standard)\n"
+                "   • sora-2-pro (advanced)\n\n"
+                "Required steps:\n"
+                "   1. Visit https://ai.azure.com/\n"
+                "   2. Select your Azure OpenAI resource\n"
+                "   3. Go to 'Deployments' → 'Create new deployment'\n"
+                "   4. Select the Sora model you want to use\n"
+                "   5. Deployment name must match model name\n\n"
+                "To list available models:\n"
+                "   ./image2video.py --list-models azure-sora\n\n"
+                f"Original error:\n"
+                f"   {error_str}\n"
+                f"{'='*60}"
             )
+            raise RuntimeError(error_msg)
         elif "401" in error_str or "unauthorized" in error_str.lower():
             self.logger.error(
                 "Authentication failed (401 Unauthorized). This usually means:\n"
@@ -196,25 +222,9 @@ class AzureSoraAPIClient:
             retry_count: Current retry attempt number
             
         Raises:
-            KeyboardInterrupt: If user cancels during backoff
+            RuntimeError: If user cancels during backoff
         """
-        # Calculate delay with exponential backoff and jitter
-        delay = min(
-            self.config.retry_base_delay * (2 ** min(retry_count - 1, 4)),
-            self.config.retry_max_delay
-        )
-        
-        # Add random jitter to avoid thundering herd
-        jitter = delay * self.config.retry_jitter_percent * (random.random() - 0.5)
-        actual_delay = max(1, delay + jitter)
-        
-        self.logger.info(f"Waiting {actual_delay:.1f}s before retry {retry_count}...")
-        
-        try:
-            time.sleep(actual_delay)
-        except KeyboardInterrupt:
-            self.logger.warning("Operation cancelled by user")
-            raise RuntimeError("Operation cancelled by user")
+        handle_capacity_retry(retry_count, self.config, self.logger)
     
     def poll_async_job(self, response: Any) -> Any:
         """

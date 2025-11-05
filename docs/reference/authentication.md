@@ -44,7 +44,7 @@ az login
   - `GOOGLE_API_KEY` (OAuth token via gcloud; short-lived; DO NOT store in .env)
 - Browser OAuth (recommended):
 ```bash
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 - gcloud CLI alternative:
@@ -90,5 +90,5 @@ RUNWAY_MODEL=gen4_turbo
 ## See Also
 
 - Installation: [../installation.md](../installation.md)
-- Backends: [../backends/](../backends/)
+- Backends: [../providers/](../providers/)
 - Environment Variables: [environment-variables.md](environment-variables.md)

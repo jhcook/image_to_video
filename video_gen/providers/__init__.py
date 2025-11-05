@@ -1,5 +1,5 @@
 """
-Provider modules for video generation backends.
+Provider modules for video generation providers.
 
 This package contains provider-specific implementations organized by vendor.
 Each provider module is named with a '_provider' suffix to prevent package

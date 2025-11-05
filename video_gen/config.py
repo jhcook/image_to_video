@@ -1,5 +1,5 @@
 """
-Configuration module for video generation backends.
+Configuration module for video generation providers.
 
 Handles environment variables, API keys, and default settings for
 both Sora-2 and Veo-3 video generation models.
@@ -34,7 +34,7 @@ ERROR_DIMENSIONS_INVALID = "Width and height must be positive"
 ERROR_FPS_INVALID = "FPS must be positive"
 ERROR_DURATION_INVALID = "Duration must be positive"
 
-VideoBackend = Literal["sora2", "azure-sora", "veo3", "runway"]
+VideoProvider = Literal["openai", "azure", "google", "runway"]
 
 
 @dataclass
@@ -60,44 +60,44 @@ class BaseConfig:
     # Re-export for backward compatibility (all configs now defined in provider modules)
 
 
-def create_config_for_backend(backend: VideoBackend):
+def create_config_for_provider(provider: VideoProvider):
     """
-    Create appropriate configuration for the specified backend.
+    Create appropriate configuration for the specified provider.
     
     Args:
-        backend: The video generation backend to use
+        provider: The video generation provider to use
         
     Returns:
-        Configuration instance for the specified backend
+        Configuration instance for the specified provider
         
     Raises:
-        ValueError: If backend is not supported or configuration is invalid
+        ValueError: If provider is not supported or configuration is invalid
     """
     config_map = {
-        "sora2": SoraConfig,
-        "azure-sora": AzureSoraConfig,
-        "veo3": Veo3Config,
+        "openai": SoraConfig,
+        "azure": AzureSoraConfig,
+        "google": Veo3Config,
         "runway": RunwayConfig
     }
     
-    config_class = config_map.get(backend)
+    config_class = config_map.get(provider)
     if not config_class:
-        raise ValueError(f"Unsupported backend: {backend}. Use 'sora2', 'azure-sora', 'veo3', or 'runway'")
+        raise ValueError(f"Unsupported provider: {provider}. Use 'openai', 'azure', 'google', or 'runway'")
     
     return config_class.from_environment()
 
 
-def get_available_backends() -> list[VideoBackend]:
+def get_available_providers() -> list[VideoProvider]:
     """
-    Get list of available backends based on environment configuration.
+    Get list of available providers based on environment configuration.
     
     Returns:
-        List of available backend names
+        List of available provider names
     """
-    backend_checks = {
-        "sora2": lambda: bool(os.getenv("OPENAI_API_KEY")),
-        "azure-sora": lambda: bool(os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_ENDPOINT")),
-        "veo3": lambda: bool(
+    provider_checks = {
+        "openai": lambda: bool(os.getenv("OPENAI_API_KEY")),
+        "azure": lambda: bool(os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_ENDPOINT")),
+        "google": lambda: bool(
             os.getenv("GOOGLE_API_KEY") or 
             os.getenv("VEO3_API_KEY") or 
             os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -105,55 +105,55 @@ def get_available_backends() -> list[VideoBackend]:
         "runway": lambda: bool(os.getenv("RUNWAY_API_KEY"))
     }
     
-    return [backend for backend, check in backend_checks.items() if check()]
+    return [provider for provider, check in provider_checks.items() if check()]
 
 
-def get_default_model(backend: VideoBackend) -> str:
+def get_default_model(provider: VideoProvider) -> str:
     """
-    Get the default model for a backend.
+    Get the default model for a provider.
     
     Args:
-        backend: The video generation backend
+        provider: The video generation provider
         
     Returns:
-        Default model name for that backend
-        
+        Default model name for that provider
+
     Raises:
-        ValueError: If backend is not supported
+        ValueError: If provider is not supported
     """
     default_models = {
-        "sora2": "sora-2",
-        "azure-sora": "sora-2",
-        "veo3": DEFAULT_VEO_MODEL,
+        "openai": "sora-2",
+        "azure": "sora-2",
+        "google": DEFAULT_VEO_MODEL,
         "runway": "gen4_turbo"
     }
     
-    if backend not in default_models:
-        raise ValueError(f"Unsupported backend: {backend}")
+    if provider not in default_models:
+        raise ValueError(f"Unsupported provider: {provider}")
     
-    return default_models[backend]
+    return default_models[provider]
 
 
-def get_available_models(backend: VideoBackend, query_api: bool = False) -> list[str]:
+def get_available_models(provider: VideoProvider, query_api: bool = False) -> list[str]:
     """
-    Get list of available models for the specified backend.
+    Get list of available models for the specified provider.
     
     This function uses a hybrid approach:
     - OpenAI: Can query the API live via models.list() to get current models
-    - Veo-3/RunwayML: Use hardcoded lists (these APIs don't have model list endpoints)
+    - Google Veo/RunwayML: Use hardcoded lists (these APIs don't have model list endpoints)
     
     Args:
-        backend: The video generation backend
+        provider: The video generation provider
         query_api: If True, query the API for available models (OpenAI only)
         
     Returns:
-        List of available model names for that backend
+        List of available model names for that provider
         
     Raises:
-        ValueError: If backend is not supported
+        ValueError: If provider is not supported
     """
     # For OpenAI, optionally query the API for available models
-    if backend == "sora2" and query_api:
+    if provider == "openai" and query_api:
         try:
             from openai import OpenAI
             api_key = os.getenv("OPENAI_API_KEY")
@@ -168,17 +168,17 @@ def get_available_models(backend: VideoBackend, query_api: bool = False) -> list
             # Fall back to hardcoded list if API query fails
             pass
     
-    # Hardcoded lists (fallback or for backends without list API)
-    models_by_backend = {
-        "sora2": [
+    # Hardcoded lists (fallback or for providers without list API)
+    models_by_provider = {
+        "openai": [
             "sora-2",      # Standard quality
             "sora-2-pro"   # Higher quality, more advanced
         ],
-        "azure-sora": [
+        "azure": [
             "sora-2",      # Standard quality (Azure deployment)
             "sora-2-pro"   # Higher quality, more advanced (Azure deployment)
         ],
-        "veo3": [
+        "google": [
             "veo-3.1-generate-preview",      # Standard quality (3.1)
             DEFAULT_VEO_MODEL,                # Fast generation (3.1)
             "veo-3.0-generate-001",      # Standard quality (3.0)
@@ -193,49 +193,88 @@ def get_available_models(backend: VideoBackend, query_api: bool = False) -> list
         ]
     }
     
-    if backend not in models_by_backend:
-        raise ValueError(f"Unsupported backend: {backend}")
+    if provider not in models_by_provider:
+        raise ValueError(f"Unsupported provider: {provider}")
     
-    return models_by_backend[backend]
+    return models_by_provider[provider]
 
 
-def print_available_models(backend: VideoBackend = None, query_api: bool = True) -> None:
+def print_available_providers() -> None:
     """
-    Print available models for one or all backends.
+    Print all providers with their availability status and requirements.
+    """
+    print("=" * 70)
+    print("Available Video Generation Providers")
+    print("=" * 70)
+    
+    all_providers = ["openai", "azure", "google", "runway"]
+    available = get_available_providers()
+    descriptions = _get_provider_descriptions()
+    
+    print("\nConfigured Providers:")
+    print("-" * 70)
+    
+    for provider in all_providers:
+        is_available = provider in available
+        status = "✅ Available" if is_available else "❌ Not configured"
+        desc = descriptions.get(provider, provider.upper())
+        
+        print(f"\n  {provider:<10} {status}")
+        print(f"  {desc}")
+        
+        # Show environment requirements
+        env_requirements = _get_provider_env_requirements(provider)
+        print(f"  Requires: {env_requirements}")
+    
+    print("\n" + "=" * 70)
+    print("\nTo configure a provider, set the required environment variables:")
+    print("  export OPENAI_API_KEY='your-key'              # For OpenAI")
+    print("  export AZURE_OPENAI_API_KEY='your-key'        # For Azure")
+    print("  export AZURE_OPENAI_ENDPOINT='your-endpoint'  # For Azure")
+    print("  export GOOGLE_API_KEY='your-key'              # For Google")
+    print("  export RUNWAY_API_KEY='your-key'              # For Runway")
+    print("\nOr use --google-login for Google Veo (interactive authentication)")
+    print("\nUse --list-models [provider] to see available models for each provider")
+    print("=" * 70)
+
+
+def print_available_models(provider: VideoProvider = None, query_api: bool = True) -> None:
+    """
+    Print available models for one or all providers.
     
     Args:
-        backend: Specific backend to show models for, or None for all
+        provider: Specific provider to show models for, or None for all
         query_api: If True, query APIs for live model lists (OpenAI only)
     """
-    backends_to_show = [backend] if backend else ["sora2", "azure-sora", "veo3", "runway"]
+    providers_to_show = [provider] if provider else ["openai", "azure", "google", "runway"]
     
-    _print_header(query_api, backend)
+    _print_header(query_api, provider)
     
-    for b in backends_to_show:
-        _print_backend_models(b, query_api)
+    for b in providers_to_show:
+        _print_provider_models(b, query_api)
     
     _print_footer(query_api)
 
 
-def _print_header(query_api: bool, backend: Optional[VideoBackend]) -> None:
+def _print_header(query_api: bool, provider: Optional[VideoProvider]) -> None:
     """Print the models list header."""
     print("=" * 60)
-    print("Available Models by Backend")
-    # Only mention API querying if we're actually showing OpenAI/Azure backends
-    if query_api and (backend in ["sora2", "azure-sora"] or backend is None):
+    print("Available Models by provider")
+    # Only mention API querying if we're actually showing OpenAI/Azure providers
+    if query_api and (provider in ["openai", "azure"] or provider is None):
         print("(Querying OpenAI API for live model list...)")
     print("=" * 60)
 
 
-def _print_backend_models(backend: VideoBackend, query_api: bool) -> None:
-    """Print models for a specific backend."""
-    models = get_available_models(backend, query_api=query_api)
+def _print_provider_models(provider: VideoProvider, query_api: bool) -> None:
+    """Print models for a specific provider."""
+    models = get_available_models(provider, query_api=query_api)
     
-    descriptions = _get_backend_descriptions()
+    descriptions = _get_provider_descriptions()
     model_details = _get_model_details()
-    default_model = get_default_model(backend)
+    default_model = get_default_model(provider)
     
-    print(f"\n{descriptions.get(backend, backend.upper())} Backend:")
+    print(f"\n{descriptions.get(provider, provider.upper())} provider:")
     print("-" * 60)
     
     for model in models:
@@ -246,17 +285,28 @@ def _print_backend_models(backend: VideoBackend, query_api: bool) -> None:
         if detail:
             print(f"    {detail}")
     
-    _print_backend_status(backend)
+    _print_provider_status(provider)
 
 
-def _get_backend_descriptions() -> dict:
-    """Get backend name descriptions."""
+def _get_provider_descriptions() -> dict:
+    """Get provider name descriptions."""
     return {
-        "sora2": "OpenAI Sora-2 (Direct API)",
-        "azure-sora": "Azure AI Foundry Sora-2",
-        "veo3": "Google Veo-3",
+        "openai": "OpenAI Sora-2 (Direct API)",
+        "azure": "Azure AI Foundry Sora-2",
+        "google": "Google Veo-3",
         "runway": "RunwayML (Gen-4 & Veo)"
     }
+
+
+def _get_provider_env_requirements(provider: VideoProvider) -> str:
+    """Get environment variable requirements for a provider."""
+    requirements = {
+        "openai": "OPENAI_API_KEY",
+        "azure": "AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT",
+        "google": "GOOGLE_API_KEY (or use --google-login)",
+        "runway": "RUNWAY_API_KEY"
+    }
+    return requirements.get(provider, "Unknown")
 
 
 def _get_model_details() -> dict:
@@ -276,18 +326,18 @@ def _get_model_details() -> dict:
     }
 
 
-def _print_backend_status(backend: VideoBackend) -> None:
+def _print_provider_status(provider: VideoProvider) -> None:
     """Print environment variable requirements and availability status."""
     env_vars = {
-        "sora2": "OPENAI_API_KEY",
-        "azure-sora": "AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT",
-        "veo3": "GOOGLE_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "azure": "AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT",
+        "google": "GOOGLE_API_KEY",
         "runway": "RUNWAY_API_KEY"
     }
     
-    available = backend in get_available_backends()
+    available = provider in get_available_providers()
     status = "✅ Available" if available else "❌ Not configured"
-    print(f"\n    Environment: {env_vars.get(backend, 'Unknown')}")
+    print(f"\n    Environment: {env_vars.get(provider, 'Unknown')}")
     print(f"    Status: {status}")
 
 
@@ -303,7 +353,7 @@ def _print_footer(query_api: bool) -> None:
     print("\nOr set environment variables:")
     print("  export RUNWAY_MODEL=gen4               # For RunwayML")
     print("\nNote:")
-    print("  • Each backend uses its default model if --model is not specified.")
+    print("  • Each provider uses its default model if --model is not specified.")
     if query_api:
         print("  • OpenAI models are queried live from the API.")
         print("  • Veo-3 and RunwayML models use hardcoded lists (no API list endpoint).")

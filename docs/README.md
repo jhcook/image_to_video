@@ -10,10 +10,10 @@ Welcome to the Multi-Backend Video Generator documentation. This directory conta
 - 🔧 **[Installation](installation.md)** - Detailed installation instructions
 
 ### Backend-Specific Guides
-- 🎨 **[OpenAI Sora Guide](backends/openai-sora.md)** - OpenAI Sora-2 setup and usage
-- ☁️ **[Azure Sora Guide](backends/azure-sora.md)** - Azure AI Foundry Sora setup
-- 🎬 **[Google Veo Guide](backends/google-veo.md)** - Google Veo-3 setup and authentication
-- 🎥 **[RunwayML Guide](backends/runwayml.md)** - RunwayML Gen-4 and Veo models
+- 🎨 **[OpenAI Sora Guide](providers/openai-sora.md)** - OpenAI Sora-2 setup and usage
+- ☁️ **[Azure Sora Guide](providers/azure.md)** - Azure AI Foundry Sora setup
+- 🎬 **[Google Veo Guide](providers/google-veo.md)** - Google Veo-3 setup and authentication
+- 🎥 **[RunwayML Guide](providers/runwayml.md)** - RunwayML Gen-4 and Veo models
 
 ### Advanced Topics
 - 🔗 **[Stitching Guide](advanced/stitching.md)** - Multi-clip seamless video generation
@@ -29,7 +29,7 @@ Welcome to the Multi-Backend Video Generator documentation. This directory conta
 - 📝 **[Development Guide](technical/development.md)** - Contributing and extending
 
 ### Reference
-- 📊 **[Backend Comparison](reference/backend-comparison.md)** - Feature and pricing comparison
+- 📊 **[Provider Comparison](reference/provider-comparison.md)** - Feature and pricing comparison
 - 🎛️ **[CLI Reference](reference/cli-reference.md)** - Complete command-line reference
 - 🔐 **[Authentication](reference/authentication.md)** - All authentication methods
 - 🌍 **[Environment Variables](reference/environment-variables.md)** - Configuration reference
@@ -38,32 +38,32 @@ Welcome to the Multi-Backend Video Generator documentation. This directory conta
 
 ```
 docs/
-├── README.md                    # This file - documentation index
+├── README.md                   # This file - documentation index
 ├── user-guide.md               # Complete user documentation
 ├── quick-start.md              # Fast getting started guide
 ├── installation.md             # Installation instructions
 │
-├── backends/                    # Backend-specific guides
+├── providers/                  # Provider-specific guides
 │   ├── openai-sora.md          # OpenAI Sora documentation
-│   ├── azure-sora.md           # Azure Sora documentation
+│   ├── azure.md           # Azure Sora documentation
 │   ├── google-veo.md           # Google Veo documentation
 │   └── runwayml.md             # RunwayML documentation
 │
-├── advanced/                    # Advanced usage topics
+├── advanced/                   # Advanced usage topics
 │   ├── stitching.md            # Multi-clip video generation
 │   ├── image-grouping.md       # Image distribution per clip
 │   ├── image-grouping-quick.md # Quick reference for image grouping
 │   ├── prompts.md              # Prompt engineering guide
 │   └── troubleshooting.md      # Problem solving
 │
-├── technical/                   # Technical documentation
+├── technical/                  # Technical documentation
 │   ├── architecture.md         # System architecture
 │   ├── api-reference.md        # API documentation
 │   ├── testing.md              # Testing guide
 │   └── development.md          # Development guide
 │
 └── reference/                   # Quick reference materials
-    ├── backend-comparison.md   # Backend feature comparison
+    ├── provider-comparison.md   # Backend feature comparison
     ├── cli-reference.md        # CLI command reference
     ├── authentication.md       # Authentication methods
     └── environment-variables.md # Environment configuration
@@ -71,14 +71,14 @@ docs/
 
 ## About This Project
 
-The Multi-Backend Video Generator is a Python application that converts images to videos using multiple AI backends:
+The Multi-Backend Video Generator is a Python application that converts images to videos using multiple AI providers:
 - OpenAI's Sora-2
 - Azure AI Foundry Sora-2
 - Google's Veo-3
 - RunwayML's Gen-4 and Veo models
 
 Key features include:
-- ✅ Multi-backend support with unified interface
+- ✅ Multi-provider support with unified interface
 - ✅ Flexible image input (wildcards, multiple files, mixed formats)
 - ✅ Automatic retry logic with exponential backoff
 - ✅ Seamless multi-clip stitching (Veo 3.1, RunwayML Veo)

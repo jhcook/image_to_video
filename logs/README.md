@@ -22,7 +22,7 @@ This directory contains log files generated during video generation operations.
 - Major operation starts (video generation, file uploads)
 - Successful completions
 - Progress milestones
-- Model and backend selection
+- Model and provider selection
 
 ### WARNING Level
 - Retry attempts due to rate limiting
@@ -51,7 +51,7 @@ tail -100 video_gen.log
 # Search for errors
 grep ERROR video_gen.log
 
-# Search for specific backend
+# Search for specific provider
 grep "Veo-3" video_gen.log
 grep "Sora-2" video_gen.log
 grep "RunwayML" video_gen.log

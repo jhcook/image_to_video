@@ -172,7 +172,7 @@ echo
 # Generate all clips with automatic frame stitching
 # Output files: veo3_clip_1.mp4, veo3_clip_2.mp4, ...
 ./image2video.py \
-  --backend veo3 \
+  --provider veo3 \
   --model "${MODEL}" \
   --stitch \
   "${GOOGLE_LOGIN_FLAGS[@]}" \

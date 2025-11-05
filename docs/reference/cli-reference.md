@@ -21,21 +21,21 @@ Command-line options for `image2video.py`.
     - `-i "image.jpg"`
     - `-i "img1.jpg,img2.jpg,dir/*.png"`
 
-### Backend Selection
+### Provider Selection
 
-- `--backend {sora2|azure-sora|veo3|runway}`
-  - Select provider backend (default: sora2)
+- `--provider {openai|azure|google|runway}`
+  - Select AI video provider (default: openai)
 
 - `--model MODEL_NAME`
-  - Choose a specific model for the selected backend
+  - Choose a specific model for the selected provider
 
-- `--list-models [BACKEND]`
-  - List available models (all backends if omitted)
+- `--list-models [PROVIDER]`
+  - List available models (all providers if omitted)
 
 ### Video Parameters
 
 - `--duration SECONDS`
-  - Target video length (backend-dependent)
+  - Target video length (provider-dependent)
   - Runway Gen-4: only 5 or 10; others: flexible (2–10 typical)
 
 - `--width PIXELS`, `--height PIXELS`
@@ -43,7 +43,7 @@ Command-line options for `image2video.py`.
   - Common presets: 1920x1080, 1080x1920, 1080x1080
 
 - `--seed NUMBER`
-  - Random seed for reproducibility (not all backends support)
+  - Random seed for reproducibility (not all providers support)
 
 - `--loop true|false`
   - Attempt seamless loop (Sora only)
@@ -80,12 +80,12 @@ Command-line options for `image2video.py`.
 
 - Runway Gen-4 Turbo:
 ```
-./image2video.py --backend runway --model gen4_turbo -i hero.jpg "Prompt"
+./image2video.py --provider runway --model gen4_turbo -i hero.jpg "Prompt"
 ```
 
 - Veo 3.1 Stitching:
 ```
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "refs/*.jpg" \
   -p "Opening" "Middle" "Final"
 ```
