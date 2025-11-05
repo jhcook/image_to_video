@@ -75,10 +75,13 @@ class Veo3APIClient:
         self.project_id = config.project_id
         self.location = config.location
 
-        # If no API key, try browser-based OAuth
+        # Track auth source to enable refresh-on-401 for OAuth flows
+        self._auth_source = "env"
+        # If no API key, try browser-based OAuth and mark as oauth source
         if not self.api_key:
             creds = get_google_credentials()
             self.api_key = creds.token  # Use OAuth2 access token
+            self._auth_source = "oauth"
         
         # Veo models are ONLY available through Vertex AI endpoint
         # Gemini API does NOT support Veo models
@@ -300,14 +303,14 @@ class Veo3APIClient:
         
         # Vertex AI endpoint (Veo is only available through Vertex AI)
         url = f"{self.base_url}/projects/{self.project_id}/locations/{self.location}/publishers/google/models/{model}:predict"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        
         attempt = 0
         while attempt < self.max_retries:
             try:
+                # Build headers fresh each attempt to pick up refreshed tokens
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                }
                 self.logger.debug(f"Making Veo-3 API request via Vertex AI (attempt {attempt + 1})")
                 self.logger.debug(f"Project: {self.project_id}, Location: {self.location}, Model: {model}")
                 response = requests.post(
@@ -394,17 +397,37 @@ class Veo3APIClient:
         return True
     
     def _handle_auth_error(self, response, url: str, attempt: int) -> bool:
-        """Handle 401 authentication errors."""
+        """Handle 401 authentication errors with auto re-auth for OAuth flows.
+
+        Returns True if we refreshed credentials and the caller should retry.
+        """
         self.logger.error(f"Authentication failed ({HTTP_UNAUTHORIZED})")
         self.logger.error(f"Response: {response.text[:ERROR_RESPONSE_PREVIEW_LENGTH]}")
+
+        # Try to transparently refresh OAuth2 credentials and retry once
+        try:
+            self.logger.info("Attempting to refresh Google OAuth2 credentials...")
+            # get_google_credentials handles both gcloud tokens and browser OAuth with refresh
+            creds = get_google_credentials()
+            if hasattr(creds, "token") and creds.token:
+                self.api_key = creds.token
+                self._auth_source = "oauth"
+                self.logger.info("✅ Obtained a fresh access token; will retry the request")
+                return True
+            else:
+                self.logger.error("Credential refresh did not return a valid token")
+        except Exception as e:
+            self.logger.error(f"Re-authentication failed: {e}")
+
+        # If we reach here, we cannot auto-refresh; provide guidance and stop
         error_msg = (
-            "❌ Authentication failed with Vertex AI.\n"
-            "Your OAuth2 access token may have expired (tokens last 1 hour).\n"
-            "\nTo fix:\n"
-            "1. Get a fresh token: gcloud auth application-default print-access-token\n"
-            "2. Update your .env: GOOGLE_API_KEY=<new-token>\n"
-            "   OR export GOOGLE_API_KEY=\"$(gcloud auth application-default print-access-token)\"\n"
-            "\nFor long-term use, set up a service account (see VEO_AUTH_GUIDE.md)"
+            "❌ Authentication failed with Vertex AI and automatic re-authentication was not possible.\n"
+            "This can happen if you're using a static token or lack OAuth setup.\n\n"
+            "To fix:\n"
+            "  • Get a fresh token: gcloud auth application-default print-access-token\n"
+            "  • Then set: export GOOGLE_API_KEY=\"$(gcloud auth application-default print-access-token)\"\n"
+            "  • Or run with --google-login / --google-login-browser to set up OAuth\n\n"
+            "For long-term use, consider a service account. See VEO_AUTH_GUIDE.md"
         )
         raise AuthenticationError(error_msg)
     
@@ -469,7 +492,25 @@ class Veo3APIClient:
     def _download_video_from_uri(self, uri: str) -> bytes:
         """Download video content from a URI."""
         try:
+            # First try without auth (most URIs are pre-signed/public)
             response = requests.get(uri, timeout=300)
+            if response.status_code in (HTTP_UNAUTHORIZED, 403):
+                # Retry with Authorization header
+                self.logger.info("Video URI requires authorization; retrying with bearer token")
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+                response = requests.get(uri, headers=headers, timeout=300)
+                if response.status_code == HTTP_UNAUTHORIZED:
+                    # Attempt to refresh OAuth token and retry once
+                    try:
+                        self.logger.info("Refreshing Google OAuth2 credentials for video download...")
+                        creds = get_google_credentials()
+                        if hasattr(creds, "token") and creds.token:
+                            self.api_key = creds.token
+                            headers = {"Authorization": f"Bearer {self.api_key}"}
+                            response = requests.get(uri, headers=headers, timeout=300)
+                    except Exception as reauth_err:
+                        self.logger.error(f"Re-authentication during download failed: {reauth_err}")
+
             response.raise_for_status()
             return response.content
         except requests.RequestException as e:

@@ -142,6 +142,8 @@ See **[Installation Guide](docs/installation.md)** for detailed instructions.
 
 Each backend requires different authentication:
 
+Tip: A fully commented template of all required and optional variables is provided in .env.sample. Copy it to .env and edit values as needed.
+
 ### OpenAI Sora
 ```bash
 export OPENAI_API_KEY="your-api-key"
@@ -209,8 +211,8 @@ image_to_video/
 # Activate virtual environment
 source venv/bin/activate
 
-# Run test suite
-python test_final.py
+# Run the full unittest suite
+python -m unittest discover -s tests -p "test_*.py" -v
 
 # Test specific backend
 ./image2video.py --backend sora2 "Test prompt"

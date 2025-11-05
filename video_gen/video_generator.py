@@ -1,9 +1,30 @@
+from __future__ import annotations
+
 import subprocess
 import tempfile
-from typing import List, Optional
-from .exceptions import InsufficientCreditsError
+from pathlib import Path
+from typing import Iterable, List, Optional, Union
 
-def extract_last_frame_as_png(video_path: str, output_dir: str = None) -> str:
+from .exceptions import InsufficientCreditsError
+from .config import (
+    SoraConfig,
+    Veo3Config,
+    RunwayConfig,
+    VideoBackend,
+    create_config_for_backend,
+)
+from .providers import (
+    SoraAPIClient,
+    AzureSoraAPIClient,
+    Veo3APIClient,
+    RunwayGen4Client,
+    RunwayVeoClient,
+)
+from .file_handler import FileHandler
+from .logger import get_library_logger
+
+
+def extract_last_frame_as_png(video_path: str, output_dir: str | None = None) -> str:
     """
     Extract the last frame of a video as a PNG file using ffmpeg.
     
@@ -42,131 +63,41 @@ def extract_last_frame_as_png(video_path: str, output_dir: str = None) -> str:
         raise RuntimeError(f"Failed to extract last frame: {e}")
     return output_png
 def generate_video_sequence_with_veo3_stitching(
-    prompts,
-    file_paths_list=None,
-    width=1280,
-    height=720,
-    duration_seconds=8,
-    seed=None,
-    out_paths=None,
-    config=None,
-    model=None,
-    delay_between_clips=10,
-    backend="veo3",
-    resume=False
-):
+    prompts: List[str],
+    file_paths_list: Optional[List[List[str]]] = None,
+    width: int = 1280,
+    height: int = 720,
+    duration_seconds: int = 8,
+    seed: Optional[int] = None,
+    out_paths: Optional[List[str]] = None,
+    config: Optional[Union[Veo3Config, RunwayConfig]] = None,
+    model: Optional[str] = None,
+    delay_between_clips: int = 10,
+    backend: str = "veo3",
+    resume: bool = False,
+) -> List[str]:
     """
-    Generate a sequence of Veo 3.1 video clips with seamless frame transitions.
-    
+    Generate a sequence of Veo video clips with seamless frame transitions.
+
     Supports both Google Veo (backend="veo3") and RunwayML Veo (backend="runway").
-    
-    This function orchestrates multi-clip video generation where the last frame
-    from each clip is automatically extracted and used as the source frame (first
-    frame parameter) for the next clip, ensuring perfect visual continuity.
-    
-    The implementation correctly uses Veo 3.1 API parameters:
-    - `image`/`firstKeyframe`: Source frame from previous clip (for clips 2+)
-    - `reference_images`: User's uploaded images (consistent across all clips)
-    
-    Args:
-        prompts: List of text prompts (one per clip, each can be completely different)
-        file_paths_list: Optional list of image lists for each clip. If provided,
-                        each element is a list of reference images for that clip.
-                        If None, no reference images are used.
-        width: Video width in pixels (default: 1280)
-        height: Video height in pixels (default: 720)
-        duration_seconds: Duration for each clip in seconds (default: 8)
-        seed: Optional random seed for reproducibility
-        out_paths: Optional list of custom output paths (default: veo3_clip_N.mp4)
-        config: Veo3Config instance (loads from environment if None)
-        model: Veo 3.1 model name (must start with "veo-3.1")
-        delay_between_clips: Seconds to wait between generating clips (default: 10)
-                            Helps avoid rate limiting when generating multiple clips.
-                            Set to 0 to disable. Recommended: 10-30 seconds.
-        
-    Returns:
-        List of generated video file paths (one per prompt)
-        
-    Raises:
-        ValueError: If model is not a Veo 3.1 model
-        RuntimeError: If frame extraction or video generation fails
-        
-    Example:
-        >>> prompts = [
-        ...     "Pan right from foyer",
-        ...     "Dolly forward to living area",
-        ...     "Pan to sideboard"
-        ... ]
-        >>> outputs = generate_video_sequence_with_veo3_stitching(
-        ...     prompts=prompts,
-        ...     file_paths_list=[["img1.png"], ["img2.png"], ["img3.png"]],
-        ...     model="veo-3.1-fast-generate-preview"
-        ... )
-        >>> print(outputs)  # ['veo3_clip_1.mp4', 'veo3_clip_2.mp4', 'veo3_clip_3.mp4']
-        
-    Workflow:
-        1. Clip 1: Generate with reference images only (no source frame)
-        2. Extract last frame from Clip 1
-        3. Clip 2: Generate with source frame + reference images
-        4. Extract last frame from Clip 2
-        5. Clip 3: Generate with source frame + reference images
-        6. Continue for all remaining clips...
-        
-    See Also:
-        - extract_last_frame_as_png(): Frame extraction implementation
-        - generate_video_with_veo3(): Single clip generation with source frame support
-        - Veo 3.1 API docs: https://ai.google.dev/gemini-api/docs/video
     """
     logger = get_library_logger()
-    
-    # Load config based on backend
-    if config is None:
-        if backend == "veo3":
-            config = Veo3Config.from_environment()
-        else:  # runway
-            config = RunwayConfig.from_environment()
-    
-    # Validate model
-    if not model or not model.startswith("veo"):
-        raise ValueError("Stitching is only supported for Veo models (veo-3.1* or veo3/veo3.1/veo3.1_fast).")
-    
-    outputs = []
-    last_frame_path = None
 
-    # Optional resume support: if resume=True, detect existing outputs and skip them
+    # Config and model validation
+    config = _get_stitch_config(backend, config)
+    _validate_stitch_model(model)
+
+    outputs: List[str] = []
+    last_frame_path: Optional[str] = None
+
+    expected_paths = _build_expected_out_paths(len(prompts), out_paths, backend)
+
+    # Resume support: detect already-generated clips and last frame
+    start_idx = 0
     if resume:
-        # Precompute expected out paths
-        expected_paths = []
-        for idx in range(len(prompts)):
-            # Determine expected out_path for each clip without side effects
-            if out_paths:
-                expected_paths.append(out_paths[idx])
-            else:
-                prefix = "veo3" if backend == "veo3" else "runway_veo"
-                expected_paths.append(f"{prefix}_clip_{idx + 1}.mp4")
+        outputs, start_idx, last_frame_path = _compute_resume_state(expected_paths)
 
-        # Walk existing outputs
-        from pathlib import Path as _Path
-        last_done = -1
-        for idx, p in enumerate(expected_paths):
-            if _Path(p).exists() and _Path(p).stat().st_size > 0:
-                outputs.append(p)
-                last_done = idx
-            else:
-                break
-
-        # If we have any done clips, set last_frame_path from the last one
-        if last_done >= 0:
-            try:
-                last_frame_path = extract_last_frame_as_png(expected_paths[last_done])
-            except Exception:
-                # If extraction fails, fallback to no resume frame and re-generate from next
-                last_frame_path = None
-        # Advance start index
-        start_idx = last_done + 1
-    else:
-        start_idx = 0
-    
+    # Iterate and generate remaining clips
     for idx in range(start_idx, len(prompts)):
         prompt = prompts[idx]
         reference_images, source_frame, out_path = _veo3_prepare_clip_params(
@@ -174,50 +105,120 @@ def generate_video_sequence_with_veo3_stitching(
         )
         _veo3_log_clip(logger, idx, len(prompts), reference_images, source_frame)
 
-        # Generate video with the appropriate backend
         try:
-            if backend == "veo3":
-                video_path = generate_video_with_veo3(
-                    prompt=prompt,
-                    file_paths=reference_images,
-                    source_frame=source_frame,
-                    width=width,
-                    height=height,
-                    duration_seconds=duration_seconds,
-                    seed=seed,
-                    out_path=out_path,
-                    config=config,
-                    model=model
-                )
-            else:  # runway
-                video_path = generate_video_with_runway_veo(
-                    prompt=prompt,
-                    reference_images=reference_images,
-                    first_frame=source_frame,
-                    width=width,
-                    height=height,
-                    duration_seconds=duration_seconds,
-                    seed=seed,
-                    out_path=out_path,
-                    config=config,
-                    model=model
-                )
+            video_path = _generate_veo_clip(
+                backend=backend,
+                prompt=prompt,
+                reference_images=reference_images,
+                source_frame=source_frame,
+                width=width,
+                height=height,
+                duration_seconds=duration_seconds,
+                seed=seed,
+                out_path=out_path,
+                config=config,
+                model=model,
+            )
         except InsufficientCreditsError as e:
-            # Stop gracefully and return any clips generated so far
             logger.error(
                 "Stopping stitching due to insufficient RunwayML credits after clip %d/%d.\n%s",
                 idx + 1,
                 len(prompts),
-                str(e)
+                str(e),
             )
-            # Return what we have so far
             return outputs
-        
+
         outputs.append(video_path)
         last_frame_path = extract_last_frame_as_png(video_path)
-
         _veo3_sleep_between_clips(logger, idx, len(prompts), delay_between_clips)
+
     return outputs
+
+
+def _get_stitch_config(backend: str, config: Optional[Union[Veo3Config, RunwayConfig]]):
+    if config is not None:
+        return config
+    if backend == "veo3":
+        return Veo3Config.from_environment()
+    return RunwayConfig.from_environment()
+
+
+def _validate_stitch_model(model: Optional[str]) -> None:
+    if not model or not model.startswith("veo"):
+        raise ValueError(
+            "Stitching is only supported for Veo models (veo-3.1* or veo3/veo3.1/veo3.1_fast)."
+        )
+
+
+def _build_expected_out_paths(count: int, out_paths: Optional[List[str]], backend: str) -> List[str]:
+    if out_paths:
+        return list(out_paths)
+    prefix = "veo3" if backend == "veo3" else "runway_veo"
+    return [f"{prefix}_clip_{i + 1}.mp4" for i in range(count)]
+
+
+def _compute_resume_state(expected_paths: List[str]) -> tuple[List[str], int, Optional[str]]:
+    outputs: List[str] = []
+    last_done = -1
+    for idx, p in enumerate(expected_paths):
+        pp = Path(p)
+        if pp.exists() and pp.stat().st_size > 0:
+            outputs.append(p)
+            last_done = idx
+        else:
+            break
+
+    last_frame_path: Optional[str] = None
+    if last_done >= 0:
+        try:
+            last_frame_path = extract_last_frame_as_png(expected_paths[last_done])
+        except Exception:
+            last_frame_path = None
+
+    start_idx = last_done + 1
+    return outputs, start_idx, last_frame_path
+
+
+def _generate_veo_clip(
+    *,
+    backend: str,
+    prompt: str,
+    reference_images: List[str],
+    source_frame: Optional[str],
+    width: int,
+    height: int,
+    duration_seconds: int,
+    seed: Optional[int],
+    out_path: str,
+    config: Union[Veo3Config, RunwayConfig],
+    model: Optional[str],
+) -> str:
+    if backend == "veo3":
+        return generate_video_with_veo3(
+            prompt=prompt,
+            file_paths=reference_images,
+            source_frame=source_frame,
+            width=width,
+            height=height,
+            duration_seconds=duration_seconds,
+            seed=seed,
+            out_path=out_path,
+            config=config,  # type: ignore[arg-type]
+            model=model,
+        )
+    else:
+        return generate_video_with_runway_veo(
+            prompt=prompt,
+            reference_images=reference_images,
+            first_frame=source_frame,
+            width=width,
+            height=height,
+            duration_seconds=duration_seconds,
+            seed=seed,
+            out_path=out_path,
+            config=config,  # type: ignore[arg-type]
+            model=model,
+        )
 
 
 def _veo3_prepare_clip_params(idx, file_paths_list, last_frame_path, out_paths, backend="veo3"):
@@ -283,13 +284,6 @@ See Also:
     - Veo 3.1 API docs: https://ai.google.dev/gemini-api/docs/video
 """
 
-from typing import Iterable, Union
-from pathlib import Path
-
-from .config import SoraConfig, Veo3Config, RunwayConfig, VideoBackend, create_config_for_backend
-from .providers import SoraAPIClient, AzureSoraAPIClient, Veo3APIClient, RunwayGen4Client, RunwayVeoClient
-from .file_handler import FileHandler
-from .logger import get_library_logger
 
 
 def generate_video(
