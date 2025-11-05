@@ -54,22 +54,22 @@ source ~/.zshrc
 **Method 3: Direct in Command**
 
 ```bash
-RUNWAY_API_KEY="your-key" ./image2video.py --backend runway "Prompt"
+RUNWAY_API_KEY="your-key" ./image2video.py --provider runway "Prompt"
 ```
 
 ### Verify Setup
 
 ```bash
 # Test configuration
-./image2video.py --backend runway --list-models
+./image2video.py --provider runway --list-models
 
 # Expected output:
-# Available models for backend 'runway':
+# Available models for provider 'runway':
 #   - gen4_turbo (default)
 #   - gen4
-#   - veo3
-#   - veo3.1
-#   - veo3.1_fast
+#   - google
+#   - google.1
+#   - google.1_fast
 ```
 
 ## Available Models
@@ -86,7 +86,7 @@ RunwayML offers two model families: Gen-4 (RunwayML's own) and Veo (Google's via
 - **Best for**: Quick iterations, testing, social media
 
 ```bash
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   -i "photo.jpg" "Quick generation prompt"
 ```
 
@@ -98,7 +98,7 @@ RunwayML offers two model families: Gen-4 (RunwayML's own) and Veo (Google's via
 - **Best for**: Production quality, client work
 
 ```bash
-./image2video.py --backend runway --model gen4 \
+./image2video.py --provider runway --model gen4 \
   -i "photo.jpg" "High quality production prompt"
 ```
 
@@ -106,7 +106,7 @@ RunwayML offers two model families: Gen-4 (RunwayML's own) and Veo (Google's via
 
 RunwayML now provides Google's Veo models with simpler authentication!
 
-**veo3**
+**google**
 - **Quality**: High quality (Google Veo 3.0)
 - **Speed**: Standard (~2-4 minutes)
 - **Duration**: 2-10 seconds
@@ -115,11 +115,11 @@ RunwayML now provides Google's Veo models with simpler authentication!
 - **Best for**: High-quality videos without Google Cloud setup
 
 ```bash
-./image2video.py --backend runway --model veo3 \
+./image2video.py --provider runway --model google \
   -i "ref1.jpg,ref2.jpg,ref3.jpg" "Veo 3.0 prompt"
 ```
 
-**veo3.1** (Latest)
+**google.1** (Latest)
 - **Quality**: Excellent (Google Veo 3.1)
 - **Speed**: Standard (~2-4 minutes)
 - **Duration**: 2-10 seconds
@@ -128,11 +128,11 @@ RunwayML now provides Google's Veo models with simpler authentication!
 - **Best for**: Maximum quality with stitching
 
 ```bash
-./image2video.py --backend runway --model veo3.1 \
+./image2video.py --provider runway --model google.1 \
   -i "refs/*.jpg" "Veo 3.1 prompt"
 ```
 
-**veo3.1_fast** (Recommended for Veo)
+**google.1_fast** (Recommended for Veo)
 - **Quality**: Excellent (Google Veo 3.1 Fast)
 - **Speed**: Fast (~1-2 minutes)
 - **Duration**: 2-10 seconds
@@ -141,7 +141,7 @@ RunwayML now provides Google's Veo models with simpler authentication!
 - **Best for**: Best balance of quality, speed, and cost
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   -i "refs/*.jpg" "Fast Veo 3.1 prompt"
 ```
 
@@ -151,11 +151,11 @@ RunwayML now provides Google's Veo models with simpler authentication!
 
 ```bash
 # Gen-4 Turbo (default)
-./image2video.py --backend runway \
+./image2video.py --provider runway \
   "A peaceful mountain landscape at sunrise"
 
 # Veo model
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   "Cinematic shot of ocean waves"
 ```
 
@@ -163,11 +163,11 @@ RunwayML now provides Google's Veo models with simpler authentication!
 
 ```bash
 # Gen-4: Single image only
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   -i "photo.jpg" "Slow zoom on the subject"
 
 # Veo: Multiple reference images (up to 3)
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   -i "img1.jpg,img2.jpg,img3.jpg" "Smooth camera movement"
 ```
 
@@ -183,10 +183,10 @@ RunwayML now provides Google's Veo models with simpler authentication!
 
 ```bash
 # Automatically adjusted to 5s
-./image2video.py --backend runway --duration 7 "Prompt"
+./image2video.py --provider runway --duration 7 "Prompt"
 
 # Explicitly set 10s
-./image2video.py --backend runway --duration 10 "Prompt"
+./image2video.py --provider runway --duration 10 "Prompt"
 ```
 
 **promptImage parameter:**
@@ -195,7 +195,7 @@ RunwayML now provides Google's Veo models with simpler authentication!
 
 ```bash
 # Image as style reference
-./image2video.py --backend runway --model gen4 \
+./image2video.py --provider runway --model gen4 \
   -i "style_ref.jpg" "Generate in this style"
 ```
 
@@ -203,7 +203,7 @@ RunwayML now provides Google's Veo models with simpler authentication!
 - Control reproducibility with seed
 
 ```bash
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   --seed 12345 "Reproducible generation"
 ```
 
@@ -214,7 +214,7 @@ RunwayML now provides Google's Veo models with simpler authentication!
 - Images passed via `referenceImages` parameter
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   -i "angle1.jpg,angle2.jpg,angle3.jpg" "Multi-angle prompt"
 ```
 
@@ -239,7 +239,7 @@ result = client.generate_video(
 - Veo supports 2-10 seconds
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   --duration 7 "Seven second clip"
 ```
 
@@ -250,7 +250,7 @@ Veo models through RunwayML support seamless multi-clip stitching.
 ### Basic Stitching
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast --stitch \
+./image2video.py --provider runway --model google.1_fast --stitch \
   -i "ref1.jpg,ref2.jpg" \
   -p "First clip movement" \
      "Second clip movement" \
@@ -280,7 +280,7 @@ ffmpeg -i "concat:runway_clip_1.mp4|runway_clip_2.mp4|runway_clip_3.mp4" \
 ### Real Estate Example
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast --stitch \
+./image2video.py --provider runway --model google.1_fast --stitch \
   --duration 7 \
   -i "foyer.jpg,living.jpg,kitchen.jpg" \
   -p "Start in foyer, slow pan right revealing stairs" \
@@ -316,7 +316,7 @@ outputs = generate_video_sequence_with_runway_stitching(
     width=1280,
     height=720,
     duration_seconds=7,
-    model="veo3.1_fast"
+    model="google.1_fast"
 )
 
 print(f"Generated {len(outputs)} clips")
@@ -330,19 +330,19 @@ print(f"Generated {len(outputs)} clips")
 **Gen-4 models:**
 ```bash
 # Only 5 or 10 seconds
-./image2video.py --backend runway --model gen4_turbo --duration 5 "Prompt"
-./image2video.py --backend runway --model gen4_turbo --duration 10 "Prompt"
+./image2video.py --provider runway --model gen4_turbo --duration 5 "Prompt"
+./image2video.py --provider runway --model gen4_turbo --duration 10 "Prompt"
 
 # Other values auto-adjust to 5s
-./image2video.py --backend runway --model gen4 --duration 7 "Prompt"  # → 5s
+./image2video.py --provider runway --model gen4 --duration 7 "Prompt"  # → 5s
 ```
 
 **Veo models:**
 ```bash
 # Flexible 2-10 seconds
-./image2video.py --backend runway --model veo3.1_fast --duration 3 "Prompt"
-./image2video.py --backend runway --model veo3.1_fast --duration 7 "Prompt"
-./image2video.py --backend runway --model veo3.1_fast --duration 10 "Prompt"
+./image2video.py --provider runway --model google.1_fast --duration 3 "Prompt"
+./image2video.py --provider runway --model google.1_fast --duration 7 "Prompt"
+./image2video.py --provider runway --model google.1_fast --duration 10 "Prompt"
 ```
 
 ### Resolution
@@ -351,16 +351,16 @@ Standard resolutions supported:
 
 ```bash
 # 1080p landscape (default)
-./image2video.py --backend runway --width 1920 --height 1080 "Prompt"
+./image2video.py --provider runway --width 1920 --height 1080 "Prompt"
 
 # 1080p portrait
-./image2video.py --backend runway --width 1080 --height 1920 "Prompt"
+./image2video.py --provider runway --width 1080 --height 1920 "Prompt"
 
 # 720p
-./image2video.py --backend runway --width 1280 --height 720 "Prompt"
+./image2video.py --provider runway --width 1280 --height 720 "Prompt"
 
 # Square
-./image2video.py --backend runway --width 1080 --height 1080 "Prompt"
+./image2video.py --provider runway --width 1080 --height 1080 "Prompt"
 ```
 
 ### Default Model
@@ -369,13 +369,13 @@ Set default model via environment:
 
 ```bash
 # In .env file
-RUNWAY_MODEL=veo3.1_fast
+RUNWAY_MODEL=google.1_fast
 
 # Or export
-export RUNWAY_MODEL=veo3.1_fast
+export RUNWAY_MODEL=google.1_fast
 
 # Then just:
-./image2video.py --backend runway "Prompt"  # Uses veo3.1_fast
+./image2video.py --provider runway "Prompt"  # Uses google.1_fast
 ```
 
 ## Pricing
@@ -391,9 +391,9 @@ RunwayML uses a credit-based system:
 |-------|---------------|------------|----------|-----------|
 | **gen4_turbo** | 20-30 | $0.20-$0.30 | $1.00-$1.50 | $2.00-$3.00 |
 | **gen4** | 40-50 | $0.40-$0.50 | $2.00-$2.50 | $4.00-$5.00 |
-| **veo3** | ~40 | ~$0.40 | $2.00 | $4.00 |
-| **veo3.1** | ~40 | ~$0.40 | $2.00 | $4.00 |
-| **veo3.1_fast** | ~20 | ~$0.20 | $1.00 | $2.00 |
+| **google** | ~40 | ~$0.40 | $2.00 | $4.00 |
+| **google.1** | ~40 | ~$0.40 | $2.00 | $4.00 |
+| **google.1_fast** | ~20 | ~$0.20 | $1.00 | $2.00 |
 
 **Multi-clip stitching costs:**
 - 4 clips × 7s × $0.20/sec = $5.60
@@ -405,15 +405,15 @@ RunwayML uses a credit-based system:
 **Testing phase:**
 ```bash
 # Use fastest, cheapest model
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   --duration 5 "Test prompt"
 # Cost: ~$1.00-$1.50
 ```
 
 **Veo testing:**
 ```bash
-# Use veo3.1_fast for balance
-./image2video.py --backend runway --model veo3.1_fast \
+# Use google.1_fast for balance
+./image2video.py --provider runway --model google.1_fast \
   --duration 5 "Veo test"
 # Cost: ~$1.00
 ```
@@ -421,12 +421,12 @@ RunwayML uses a credit-based system:
 **Production:**
 ```bash
 # Gen-4 high quality
-./image2video.py --backend runway --model gen4 \
+./image2video.py --provider runway --model gen4 \
   --duration 10 "Final prompt"
 # Cost: ~$4.00-$5.00
 
 # Or Veo 3.1 Fast (better quality for same price as gen4_turbo)
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   --duration 10 "Final prompt"
 # Cost: ~$2.00
 ```
@@ -454,7 +454,7 @@ RunwayML uses a credit-based system:
 - Have multiple reference images
 - Want flexible duration (2-10s)
 - Want Google Veo without Google Cloud setup
-- Best quality/price ratio (veo3.1_fast)
+- Best quality/price ratio (google.1_fast)
 
 ## Troubleshooting
 
@@ -498,14 +498,14 @@ cat .env
 **Slow generation**
 - gen4_turbo: ~1-2 minutes (normal)
 - gen4: ~2-4 minutes (normal)
-- veo3.1_fast: ~1-2 minutes (normal)
-- veo3/veo3.1: ~2-4 minutes (normal)
+- google.1_fast: ~1-2 minutes (normal)
+- google/google.1: ~2-4 minutes (normal)
 
 ### Stitching Issues
 
 **Error: "Stitching requires Veo model"**
 - Gen-4 doesn't support stitching
-- Solution: Use `--model veo3.1_fast` or other Veo model
+- Solution: Use `--model google.1_fast` or other Veo model
 
 **Clips don't align**
 - Ensure using `--stitch` flag
@@ -518,20 +518,20 @@ cat .env
 
 **Camera movements:**
 ```bash
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   "Slow dolly forward through the scene, smooth gimbal movement"
 ```
 
 **Timing:**
 ```bash
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   --duration 7 \
   "Hold on subject for 2 seconds, then slow pan right over 5 seconds"
 ```
 
 **Style:**
 ```bash
-./image2video.py --backend runway --model gen4 \
+./image2video.py --provider runway --model gen4 \
   "Cinematic lighting, professional color grading, shallow depth of field"
 ```
 
@@ -553,12 +553,12 @@ cat .env
 
 **Development workflow:**
 1. **Testing**: Use gen4_turbo ($1-$1.50 per 5s clip)
-2. **Refinement**: Switch to veo3.1_fast ($1 per 5s clip)
-3. **Production**: Use gen4 or veo3.1 for maximum quality
+2. **Refinement**: Switch to google.1_fast ($1 per 5s clip)
+3. **Production**: Use gen4 or google.1 for maximum quality
 
 **Long-form content:**
 1. Plan sequence (6+ clips)
-2. Use veo3.1_fast with stitching
+2. Use google.1_fast with stitching
 3. Test with 2-3 clips first
 4. Generate full sequence
 5. Concatenate with ffmpeg
@@ -568,7 +568,7 @@ cat .env
 ### Example 1: Product Video (Gen-4 Turbo)
 
 ```bash
-./image2video.py --backend runway --model gen4_turbo \
+./image2video.py --provider runway --model gen4_turbo \
   --duration 5 \
   -i "product_white_bg.jpg" \
   "360 degree rotation of product on white background, \
@@ -580,7 +580,7 @@ cat .env
 ### Example 2: Social Media Content (Gen-4)
 
 ```bash
-./image2video.py --backend runway --model gen4 \
+./image2video.py --provider runway --model gen4 \
   --width 1080 --height 1920 \
   --duration 10 \
   -i "lifestyle_shot.jpg" \
@@ -592,7 +592,7 @@ cat .env
 ### Example 3: Cinematic Scene (Veo 3.1 Fast)
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast \
+./image2video.py --provider runway --model google.1_fast \
   --duration 10 \
   -i "landscape.jpg,detail.jpg" \
   "Slow crane up revealing majestic mountain vista, \
@@ -604,7 +604,7 @@ cat .env
 ### Example 4: Multi-Clip Walkthrough (Veo Stitching)
 
 ```bash
-./image2video.py --backend runway --model veo3.1_fast --stitch \
+./image2video.py --provider runway --model google.1_fast --stitch \
   --duration 7 \
   -i "entrance.jpg,living.jpg,kitchen.jpg" \
   -p "Start in entrance foyer, pan right to stairs" \

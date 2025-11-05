@@ -8,7 +8,7 @@ Feature comparison across supported providers and models.
 |---|---|---|---|---|---|
 | Auth | API key | Azure key/CLI | OAuth2 (Vertex AI) | API key | API key |
 | Setup | Easy | Medium (enterprise) | Medium/Advanced | Easy | Easy |
-| Models | sora-2, sora-2-pro | sora-2, sora-2-pro | veo-3.0, veo-3.1, fast | gen4, gen4_turbo | veo3, veo3.1, veo3.1_fast |
+| Models | sora-2, sora-2-pro | sora-2, sora-2-pro | veo-3.0, veo-3.1, fast | gen4, gen4_turbo | google, google.1, google.1_fast |
 | Ref Images | Multiple | Multiple | Up to 3 | Single only | Up to 3 |
 | Duration | Flexible | Flexible | 2–10s | 5 or 10s | 2–10s |
 | Stitching | No | No | Yes (3.1) | No | Yes (Veo) |
@@ -35,9 +35,9 @@ Feature comparison across supported providers and models.
 | veo-3.1-generate-preview | Google | Std | Max | 2–10s | ✅ |
 | gen4_turbo | Runway | Fast | Good | 5/10s | ❌ |
 | gen4 | Runway | Std | High | 5/10s | ❌ |
-| veo3.1_fast | Runway (Google) | Fast | Excellent | 2–10s | ✅ |
-| veo3.1 | Runway (Google) | Std | Excellent | 2–10s | ✅ |
-| veo3 | Runway (Google) | Std | High | 2–10s | ✅ |
+| google.1_fast | Runway (Google) | Fast | Excellent | 2–10s | ✅ |
+| google.1 | Runway (Google) | Std | Excellent | 2–10s | ✅ |
+| google | Runway (Google) | Std | High | 2–10s | ✅ |
 
 ## Cost Hints
 
@@ -47,6 +47,6 @@ Feature comparison across supported providers and models.
 
 ## Links
 
-- Backends: ../backends/
+- Backends: ../providers/
 - CLI options: cli-reference.md
 - Auth: authentication.md

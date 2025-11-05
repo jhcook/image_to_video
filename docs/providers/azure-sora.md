@@ -172,10 +172,10 @@ az account set --subscription "your-subscription-id"
 
 ```bash
 # Test configuration
-./image2video.py --backend azure-sora --list-models
+./image2video.py --provider azure --list-models
 
 # Expected output:
-# Available models for backend 'azure-sora':
+# Available models for provider 'azure':
 #   - sora-2 (default)
 #   - sora-2-pro
 ```
@@ -187,7 +187,7 @@ Azure AI Foundry supports the same Sora-2 models as OpenAI:
 ### sora-2 (Standard)
 
 ```bash
-./image2video.py --backend azure-sora --model sora-2 \
+./image2video.py --provider azure --model sora-2 \
   -i "image.jpg" "Your prompt"
 ```
 
@@ -199,7 +199,7 @@ Azure AI Foundry supports the same Sora-2 models as OpenAI:
 ### sora-2-pro (Advanced)
 
 ```bash
-./image2video.py --backend azure-sora --model sora-2-pro \
+./image2video.py --provider azure --model sora-2-pro \
   -i "image.jpg" "Your prompt"
 ```
 
@@ -213,7 +213,7 @@ Azure AI Foundry supports the same Sora-2 models as OpenAI:
 ### Text-to-Video
 
 ```bash
-./image2video.py --backend azure-sora \
+./image2video.py --provider azure \
   "A peaceful mountain landscape at sunrise"
 ```
 
@@ -221,12 +221,12 @@ Azure AI Foundry supports the same Sora-2 models as OpenAI:
 
 ```bash
 # Single image
-./image2video.py --backend azure-sora \
+./image2video.py --provider azure \
   -i "reference.jpg" \
   "Cinematic pan across the scene"
 
 # Multiple images
-./image2video.py --backend azure-sora \
+./image2video.py --provider azure \
   -i "img1.jpg,img2.jpg,img3.jpg" \
   "Smooth camera movement through the space"
 ```
@@ -235,11 +235,11 @@ Azure AI Foundry supports the same Sora-2 models as OpenAI:
 
 ```bash
 # Standard model
-./image2video.py --backend azure-sora --model sora-2 \
+./image2video.py --provider azure --model sora-2 \
   -i "test.jpg" "Test prompt"
 
 # Pro model for production
-./image2video.py --backend azure-sora --model sora-2-pro \
+./image2video.py --provider azure --model sora-2-pro \
   -i "hero.jpg" "Final production prompt"
 ```
 
@@ -249,21 +249,21 @@ All Sora-2 parameters work with Azure deployment:
 
 ```bash
 # Duration
-./image2video.py --backend azure-sora --duration 10 "Prompt"
+./image2video.py --provider azure --duration 10 "Prompt"
 
 # Resolution
-./image2video.py --backend azure-sora \
+./image2video.py --provider azure \
   --width 1920 --height 1080 "Prompt"
 
 # Portrait for mobile
-./image2video.py --backend azure-sora \
+./image2video.py --provider azure \
   --width 1080 --height 1920 "Prompt"
 
 # Seed for reproducibility
-./image2video.py --backend azure-sora --seed 42 "Prompt"
+./image2video.py --provider azure --seed 42 "Prompt"
 
 # Loop
-./image2video.py --backend azure-sora --loop true "Prompt"
+./image2video.py --provider azure --loop true "Prompt"
 ```
 
 See **[OpenAI Sora Guide](openai-sora.md)** for detailed parameter documentation.
@@ -438,13 +438,13 @@ az consumption budget create \
 **Use lower-cost options during development:**
 ```bash
 # Standard model for testing
-./image2video.py --backend azure-sora --model sora-2 \
+./image2video.py --provider azure --model sora-2 \
   --width 1280 --height 720 \
   --duration 5 \
   -i "test.jpg" "Test prompt"
 
 # Pro model only for production
-./image2video.py --backend azure-sora --model sora-2-pro \
+./image2video.py --provider azure --model sora-2-pro \
   --width 3840 --height 2160 \
   --duration 15 \
   -i "final.jpg" "Production prompt"
@@ -675,7 +675,7 @@ az login
 az account set --subscription "your-subscription"
 
 # No API key needed - uses Azure CLI credentials
-./image2video.py --backend azure-sora \
+./image2video.py --provider azure \
   -i "corporate_photo.jpg" \
   "Professional corporate video"
 ```
@@ -685,11 +685,11 @@ az account set --subscription "your-subscription"
 ```bash
 # US deployment for Americas
 export AZURE_OPENAI_ENDPOINT="https://sora-eastus.openai.azure.com/"
-./image2video.py --backend azure-sora "Prompt"
+./image2video.py --provider azure "Prompt"
 
 # EU deployment for Europe (data residency)
 export AZURE_OPENAI_ENDPOINT="https://sora-westeurope.openai.azure.com/"
-./image2video.py --backend azure-sora "Prompt"
+./image2video.py --provider azure "Prompt"
 ```
 
 ### Example 3: Automated Pipeline with Key Vault
@@ -712,7 +712,7 @@ export AZURE_OPENAI_ENDPOINT=$(az keyvault secret show \
   --output tsv)
 
 # Generate video
-./image2video.py --backend azure-sora --model sora-2-pro \
+./image2video.py --provider azure --model sora-2-pro \
   -i "input/*.jpg" \
   "$(cat prompt.txt)"
 ```

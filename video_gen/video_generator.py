@@ -12,6 +12,7 @@ from .config import (
     RunwayConfig,
     VideoProvider,
     create_config_for_provider,
+    get_available_models,
 )
 from .providers import (
     SoraAPIClient,
@@ -285,6 +286,64 @@ See Also:
 """
 
 
+def _validate_model_for_provider(model: str, provider: VideoProvider, logger) -> None:
+    """
+    Validate that the specified model is compatible with the provider.
+    
+    Raises ValueError with a helpful message if the model doesn't belong to the provider.
+    If the model is found in a different provider, suggests the correct provider.
+    
+    Args:
+        model: The model name to validate
+        provider: The provider to check against
+        logger: Logger instance for debug messages
+        
+    Raises:
+        ValueError: If model is not compatible with the provider
+    """
+    try:
+        # Get available models for the current provider (don't query API to keep it fast)
+        available_models = get_available_models(provider, query_api=False)
+        
+        if model not in available_models:
+            logger.debug(f"Model '{model}' not found in provider '{provider}'. Checking other providers...")
+            
+            # Check which provider(s) support this model
+            all_providers = ["openai", "azure", "google", "runway"]
+            matching_providers = []
+            
+            for other_provider in all_providers:
+                if other_provider == provider:
+                    continue
+                try:
+                    other_models = get_available_models(other_provider, query_api=False)
+                    if model in other_models:
+                        matching_providers.append(other_provider)
+                except Exception:
+                    # Skip if we can't get models for this provider
+                    continue
+            
+            # Build helpful error message
+            if matching_providers:
+                providers_str = "', '".join(matching_providers)
+                raise ValueError(
+                    f"Model '{model}' is not available for provider '{provider}'. "
+                    f"This model is available for provider(s): '{providers_str}'. "
+                    f"Use --provider {matching_providers[0]} instead."
+                )
+            else:
+                raise ValueError(
+                    f"Model '{model}' is not recognized for provider '{provider}'. "
+                    f"Available models for '{provider}': {', '.join(available_models)}"
+                )
+    
+    except ValueError:
+        # Re-raise ValueError (our validation error)
+        raise
+    except Exception as e:
+        # Log but don't fail on validation errors (e.g., if we can't query models)
+        logger.debug(f"Could not validate model '{model}' for provider '{provider}': {e}")
+
 
 def generate_video(
     prompt: str,
@@ -351,6 +410,10 @@ def generate_video(
     logger = get_library_logger()
     logger.info(f"Starting video generation with provider: {provider}")
     logger.debug(f"Parameters: {width}x{height}, {fps}fps, {duration_seconds}s, model={model}")
+    
+    # Validate model is compatible with provider
+    if model is not None:
+        _validate_model_for_provider(model, provider, logger)
     
     if provider == "openai":
         return generate_video_with_sora2(

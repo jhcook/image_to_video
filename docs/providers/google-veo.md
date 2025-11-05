@@ -28,7 +28,7 @@ The simplest method - authenticate directly from the CLI:
 
 ```bash
 # One-time login (opens browser)
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 **What happens:**
@@ -40,7 +40,7 @@ The simplest method - authenticate directly from the CLI:
 **Re-authentication:**
 ```bash
 # When token expires (after 1 hour)
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 ```
 
 ### Method 2: gcloud CLI
@@ -135,7 +135,7 @@ Error 401: Request had invalid authentication credentials
 
 ```bash
 # Browser method
-./image2video.py --backend veo3 --google-login
+./image2video.py --provider google --google-login
 
 # gcloud method
 export GOOGLE_API_KEY="$(gcloud auth application-default print-access-token)"
@@ -157,7 +157,7 @@ gcloud auth application-default print-access-token | \
 
 List models:
 ```bash
-./image2video.py --list-models veo3
+./image2video.py --list-models google
 ```
 
 ### Veo 3.0 Models
@@ -170,7 +170,7 @@ List models:
 - **Best for**: Production-quality videos
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.0-generate-001 \
+./image2video.py --provider google --model veo-3.0-generate-001 \
   -i "reference.jpg" "Your prompt"
 ```
 
@@ -182,7 +182,7 @@ List models:
 - **Best for**: Quick iterations, testing
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.0-fast-generate-001 \
+./image2video.py --provider google --model veo-3.0-fast-generate-001 \
   -i "reference.jpg" "Your prompt"
 ```
 
@@ -197,7 +197,7 @@ List models:
 - **Best for**: High-quality videos with stitching
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview \
   -i "reference.jpg" "Your prompt"
 ```
 
@@ -210,7 +210,7 @@ List models:
 - **Best for**: Highest quality production work
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-generate-preview \
+./image2video.py --provider google --model veo-3.1-generate-preview \
   -i "reference.jpg" "Your prompt"
 ```
 
@@ -220,17 +220,17 @@ List models:
 
 ```bash
 # No images required
-./image2video.py --backend veo3 "A serene lake at sunset with gentle waves"
+./image2video.py --provider google "A serene lake at sunset with gentle waves"
 ```
 
 ### Image-to-Video
 
 ```bash
 # Single image
-./image2video.py --backend veo3 -i "photo.jpg" "Slow pan across the landscape"
+./image2video.py --provider google -i "photo.jpg" "Slow pan across the landscape"
 
 # Multiple reference images (up to 3)
-./image2video.py --backend veo3 \
+./image2video.py --provider google \
   -i "img1.jpg,img2.jpg,img3.jpg" \
   "Smooth transition between views"
 ```
@@ -239,11 +239,11 @@ List models:
 
 ```bash
 # Fast model for testing
-./image2video.py --backend veo3 --model veo-3.0-fast-generate-001 \
+./image2video.py --provider google --model veo-3.0-fast-generate-001 \
   -i "test.jpg" "Quick test prompt"
 
 # High quality for production
-./image2video.py --backend veo3 --model veo-3.0-generate-001 \
+./image2video.py --provider google --model veo-3.0-generate-001 \
   -i "hero.jpg" "Final production prompt"
 ```
 
@@ -254,7 +254,7 @@ Veo 3.1 models support seamless multi-clip generation with automatic frame trans
 ### Basic Stitching
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "ref1.jpg,ref2.jpg" \
   -p "First clip prompt" \
      "Second clip prompt" \
@@ -262,9 +262,9 @@ Veo 3.1 models support seamless multi-clip generation with automatic frame trans
 ```
 
 **Output:**
-- `veo3_clip_1.mp4` - Generated from first prompt + reference images
-- `veo3_clip_2.mp4` - Generated from second prompt + last frame of clip 1 + reference images
-- `veo3_clip_3.mp4` - Generated from third prompt + last frame of clip 2 + reference images
+- `google_clip_1.mp4` - Generated from first prompt + reference images
+- `google_clip_2.mp4` - Generated from second prompt + last frame of clip 1 + reference images
+- `google_clip_3.mp4` - Generated from third prompt + last frame of clip 2 + reference images
 
 ### How Stitching Works
 
@@ -280,7 +280,7 @@ Veo 3.1 models support seamless multi-clip generation with automatic frame trans
 ### Real Estate Walkthrough Example
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "foyer.jpg,living.jpg,kitchen.jpg" \
   -p "Entrance foyer, slow pan right revealing staircase" \
      "Dolly forward into living room, pan left to show sofas and TV" \
@@ -294,14 +294,14 @@ After generation, combine into final video:
 
 ```bash
 # Method 1: Direct concat (fast)
-ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4|veo3_clip_4.mp4" \
+ffmpeg -i "concat:google_clip_1.mp4|google_clip_2.mp4|google_clip_3.mp4|google_clip_4.mp4" \
   -c copy final_walkthrough.mp4
 
 # Method 2: Using concat file (more reliable)
-printf "file 'veo3_clip_1.mp4'\n" > concat.txt
-printf "file 'veo3_clip_2.mp4'\n" >> concat.txt
-printf "file 'veo3_clip_3.mp4'\n" >> concat.txt
-printf "file 'veo3_clip_4.mp4'\n" >> concat.txt
+printf "file 'google_clip_1.mp4'\n" > concat.txt
+printf "file 'google_clip_2.mp4'\n" >> concat.txt
+printf "file 'google_clip_3.mp4'\n" >> concat.txt
+printf "file 'google_clip_4.mp4'\n" >> concat.txt
 ffmpeg -f concat -safe 0 -i concat.txt -c copy final_walkthrough.mp4
 ```
 
@@ -310,7 +310,7 @@ ffmpeg -f concat -safe 0 -i concat.txt -c copy final_walkthrough.mp4
 No reference images required:
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -p "Dawn breaks over calm lake with mist rising" \
      "Sun rays pierce through trees on shoreline" \
      "Birds take flight across the water" \
@@ -320,7 +320,7 @@ No reference images required:
 ### Python API for Advanced Control
 
 ```python
-from video_gen.video_generator import generate_video_sequence_with_veo3_stitching
+from video_gen.video_generator import generate_video_sequence_with_google_stitching
 
 # Define prompts (one per clip)
 prompts = [
@@ -342,7 +342,7 @@ file_paths = [
 ]
 
 # Generate sequence
-outputs = generate_video_sequence_with_veo3_stitching(
+outputs = generate_video_sequence_with_google_stitching(
     prompts=prompts,
     file_paths_list=file_paths,
     width=1280,
@@ -351,7 +351,7 @@ outputs = generate_video_sequence_with_veo3_stitching(
     model="veo-3.1-fast-generate-preview"
 )
 
-# Returns: ["veo3_clip_1.mp4", "veo3_clip_2.mp4", ...]
+# Returns: ["google_clip_1.mp4", "google_clip_2.mp4", ...]
 print(f"Generated {len(outputs)} seamless clips")
 ```
 
@@ -365,13 +365,13 @@ Veo supports 2-10 seconds per clip:
 
 ```bash
 # Short clip
-./image2video.py --backend veo3 --duration 3 "Quick action"
+./image2video.py --provider google --duration 3 "Quick action"
 
 # Standard clip
-./image2video.py --backend veo3 --duration 7 "Medium length"
+./image2video.py --provider google --duration 7 "Medium length"
 
 # Maximum length
-./image2video.py --backend veo3 --duration 10 "Longer sequence"
+./image2video.py --provider google --duration 10 "Longer sequence"
 ```
 
 **Recommendations:**
@@ -385,16 +385,16 @@ Standard resolutions supported:
 
 ```bash
 # 1080p landscape (default)
-./image2video.py --backend veo3 --width 1920 --height 1080 "Prompt"
+./image2video.py --provider google --width 1920 --height 1080 "Prompt"
 
 # 1080p portrait (mobile)
-./image2video.py --backend veo3 --width 1080 --height 1920 "Prompt"
+./image2video.py --provider google --width 1080 --height 1920 "Prompt"
 
 # 720p landscape
-./image2video.py --backend veo3 --width 1280 --height 720 "Prompt"
+./image2video.py --provider google --width 1280 --height 720 "Prompt"
 
 # Square (social media)
-./image2video.py --backend veo3 --width 1080 --height 1080 "Prompt"
+./image2video.py --provider google --width 1080 --height 1080 "Prompt"
 ```
 
 ### Reference Images
@@ -403,10 +403,10 @@ Up to 3 reference images for style and content guidance:
 
 ```bash
 # Single reference
-./image2video.py --backend veo3 -i "style_ref.jpg" "Prompt"
+./image2video.py --provider google -i "style_ref.jpg" "Prompt"
 
 # Multiple references (up to 3)
-./image2video.py --backend veo3 \
+./image2video.py --provider google \
   -i "angle1.jpg,angle2.jpg,angle3.jpg" \
   "Smooth camera movement through the scene"
 ```
@@ -470,7 +470,7 @@ gcloud services enable aiplatform.googleapis.com --project=your-project-id
 
 **Error: "Model not found"**
 - Check model name spelling
-- List available models: `./image2video.py --list-models veo3`
+- List available models: `./image2video.py --list-models google`
 - Ensure you're using a valid Veo 3.x model
 
 **Error: "Too many reference images"**
@@ -552,7 +552,7 @@ gcloud services enable aiplatform.googleapis.com --project=your-project-id
 ### Example 1: Product Reveal
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview \
   -i "product_white_bg.jpg" \
   --duration 7 \
   "360 degree rotation of the product on white background, \
@@ -563,7 +563,7 @@ gcloud services enable aiplatform.googleapis.com --project=your-project-id
 ### Example 2: Nature Scene
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.0-fast-generate-001 \
+./image2video.py --provider google --model veo-3.0-fast-generate-001 \
   -i "landscape.jpg" \
   --duration 10 \
   "Slow dolly forward through forest path, \
@@ -574,7 +574,7 @@ gcloud services enable aiplatform.googleapis.com --project=your-project-id
 ### Example 3: Real Estate Tour (6 Clips)
 
 ```bash
-./image2video.py --backend veo3 --model veo-3.1-fast-generate-preview --stitch \
+./image2video.py --provider google --model veo-3.1-fast-generate-preview --stitch \
   -i "house_ref1.jpg,house_ref2.jpg,house_ref3.jpg" \
   --duration 7 \
   -p "Entrance foyer with modern staircase, slow pan right" \
@@ -588,7 +588,7 @@ gcloud services enable aiplatform.googleapis.com --project=your-project-id
 # Total duration: 6 × 7s = 42 seconds
 
 # Concatenate
-ffmpeg -i "concat:veo3_clip_1.mp4|veo3_clip_2.mp4|veo3_clip_3.mp4|veo3_clip_4.mp4|veo3_clip_5.mp4|veo3_clip_6.mp4" \
+ffmpeg -i "concat:google_clip_1.mp4|google_clip_2.mp4|google_clip_3.mp4|google_clip_4.mp4|google_clip_5.mp4|google_clip_6.mp4" \
   -c copy house_tour_final.mp4
 ```
 

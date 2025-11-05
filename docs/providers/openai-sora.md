@@ -57,10 +57,10 @@ OPENAI_API_KEY="sk-proj-xxxxx" ./image2video.py "Your prompt"
 
 ```bash
 # Test configuration
-./image2video.py --backend sora2 --list-models
+./image2video.py --provider openai --list-models
 
 # Expected output:
-# Available models for backend 'sora2':
+# Available models for provider 'openai':
 #   - sora-2 (default)
 #   - sora-2-pro
 ```
@@ -72,7 +72,7 @@ OpenAI offers two Sora-2 models with different quality/cost tradeoffs:
 ### sora-2 (Standard)
 
 ```bash
-./image2video.py --backend sora2 --model sora-2 \
+./image2video.py --provider openai --model sora-2 \
   -i "image.jpg" "Your prompt"
 ```
 
@@ -85,7 +85,7 @@ OpenAI offers two Sora-2 models with different quality/cost tradeoffs:
 ### sora-2-pro (Advanced)
 
 ```bash
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   -i "image.jpg" "Your prompt"
 ```
 
@@ -99,13 +99,13 @@ OpenAI offers two Sora-2 models with different quality/cost tradeoffs:
 
 ```bash
 # Use default model (sora-2)
-./image2video.py --backend sora2 "Prompt"
+./image2video.py --provider openai "Prompt"
 
 # Explicitly select standard
-./image2video.py --backend sora2 --model sora-2 "Prompt"
+./image2video.py --provider openai --model sora-2 "Prompt"
 
 # Use pro model
-./image2video.py --backend sora2 --model sora-2-pro "Prompt"
+./image2video.py --provider openai --model sora-2-pro "Prompt"
 ```
 
 **When to use sora-2-pro:**
@@ -127,7 +127,7 @@ OpenAI offers two Sora-2 models with different quality/cost tradeoffs:
 Generate video from text prompt only:
 
 ```bash
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "A serene lake at sunset with gentle waves lapping at the shore"
 ```
 
@@ -137,12 +137,12 @@ Generate video using reference images:
 
 ```bash
 # Single image
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "landscape.jpg" \
   "Slow pan across the mountains at golden hour"
 
 # Multiple images (recommended for better results)
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "angle1.jpg,angle2.jpg,angle3.jpg" \
   "Smooth camera movement revealing the scene"
 ```
@@ -151,11 +151,11 @@ Generate video using reference images:
 
 ```bash
 # Standard model
-./image2video.py --backend sora2 --model sora-2 \
+./image2video.py --provider openai --model sora-2 \
   -i "photo.jpg" "Quick test prompt"
 
 # Pro model for production
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   -i "hero_image.jpg" "Cinematic reveal with dramatic lighting"
 ```
 
@@ -167,13 +167,13 @@ Sora-2 supports flexible video durations:
 
 ```bash
 # Short clip (5 seconds)
-./image2video.py --backend sora2 --duration 5 "Quick action sequence"
+./image2video.py --provider openai --duration 5 "Quick action sequence"
 
 # Medium clip (10 seconds)
-./image2video.py --backend sora2 --duration 10 "Standard scene"
+./image2video.py --provider openai --duration 10 "Standard scene"
 
 # Longer clip (20 seconds)
-./image2video.py --backend sora2 --duration 20 "Extended cinematic shot"
+./image2video.py --provider openai --duration 20 "Extended cinematic shot"
 ```
 
 **Recommendations:**
@@ -188,23 +188,23 @@ Control output resolution and aspect ratio:
 
 ```bash
 # 1080p landscape (default, 16:9)
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 1920 --height 1080 "Prompt"
 
 # 4K landscape (16:9)
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 3840 --height 2160 "Prompt"
 
 # 1080p portrait (9:16, mobile)
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 1080 --height 1920 "Prompt"
 
 # Square (1:1, social media)
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 1080 --height 1080 "Prompt"
 
 # Cinema (2.39:1)
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 2048 --height 858 "Prompt"
 ```
 
@@ -224,11 +224,11 @@ Use seed for consistent results:
 
 ```bash
 # Generate with seed
-./image2video.py --backend sora2 --seed 42 \
+./image2video.py --provider openai --seed 42 \
   -i "reference.jpg" "Specific camera movement"
 
 # Same seed + same prompt = same result
-./image2video.py --backend sora2 --seed 42 \
+./image2video.py --provider openai --seed 42 \
   -i "reference.jpg" "Specific camera movement"
 ```
 
@@ -243,7 +243,7 @@ Use seed for consistent results:
 ### Single Image
 
 ```bash
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "hero_shot.jpg" \
   "Dramatic zoom in on the subject with cinematic lighting"
 ```
@@ -257,7 +257,7 @@ Using multiple images helps Sora understand:
 - **Camera paths** that work well
 
 ```bash
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "front.jpg,side.jpg,detail.jpg" \
   "360 degree rotation revealing all angles"
 ```
@@ -272,17 +272,17 @@ Using multiple images helps Sora understand:
 
 ```bash
 # All images in directory
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "reference_images/*.jpg" \
   "Smooth walkthrough of the space"
 
 # Multiple directories
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "living_room/*.jpg,kitchen/*.png" \
   "Tour from living room to kitchen"
 
 # Mixed: specific files and wildcards
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   -i "hero.jpg,supporting/*.jpg" \
   "Start with hero image, then reveal supporting elements"
 ```
@@ -295,23 +295,23 @@ Explicitly describe camera behavior:
 
 ```bash
 # Pan
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Slow pan from left to right across the landscape"
 
 # Dolly
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Smooth dolly forward through the forest path"
 
 # Crane
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Crane up from ground level to reveal the city skyline"
 
 # Static
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Static shot with subtle natural movement"
 
 # Complex movement
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Start with slow pan right, then dolly forward while panning left"
 ```
 
@@ -320,7 +320,7 @@ Explicitly describe camera behavior:
 Control pacing within your prompt:
 
 ```bash
-./image2video.py --backend sora2 --duration 15 \
+./image2video.py --provider openai --duration 15 \
   "Open on the entrance hall. Hold for 3 seconds. \
    Slow pan right revealing the staircase. Hold for 2 seconds. \
    Dolly forward into the living area over 5 seconds. \
@@ -333,19 +333,19 @@ Describe mood and lighting:
 
 ```bash
 # Time of day
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Golden hour lighting with warm sun rays through trees"
 
 # Lighting style
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Soft diffused lighting, professional studio setup, no harsh shadows"
 
 # Atmosphere
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Moody atmospheric lighting with dramatic shadows and fog"
 
 # Technical specs
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Cinematic lighting, 24mm lens, f/2.8, natural color grading"
 ```
 
@@ -355,17 +355,17 @@ Describe the visual style you want:
 
 ```bash
 # Cinematic
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Cinematic film look, professional color grading, \
    shallow depth of field, bokeh in background"
 
 # Documentary
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Documentary style handheld camera, natural lighting, \
    subtle movements, authentic feel"
 
 # Commercial
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "High-end commercial look, perfect exposure, \
    smooth gimbal movement, pristine quality"
 ```
@@ -377,7 +377,7 @@ Describe the visual style you want:
 Create seamlessly looping videos:
 
 ```bash
-./image2video.py --backend sora2 --loop true \
+./image2video.py --provider openai --loop true \
   "Gentle ocean waves that loop seamlessly"
 ```
 
@@ -392,7 +392,7 @@ Create seamlessly looping videos:
 Generate in 4K for maximum quality:
 
 ```bash
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   --width 3840 --height 2160 \
   --duration 10 \
   -i "high_res_reference.jpg" \
@@ -413,7 +413,7 @@ PROMPT="Cinematic dolly shot through forest"
 IMAGE="forest_ref.jpg"
 
 for seed in {1..5}; do
-  ./image2video.py --backend sora2 \
+  ./image2video.py --provider openai \
     --seed $seed \
     -i "$IMAGE" \
     "$PROMPT"
@@ -541,7 +541,7 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 
 **Example:**
 ```bash
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   "Modern living room with floor-to-ceiling windows. \
    Start on the entrance, hold 2 seconds. \
    Smooth dolly forward while panning left, revealing the sofas and TV. \
@@ -554,7 +554,7 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 **1. Testing phase:**
 ```bash
 # Use standard model, lower resolution, shorter duration
-./image2video.py --backend sora2 --model sora-2 \
+./image2video.py --provider openai --model sora-2 \
   --width 1280 --height 720 \
   --duration 5 \
   -i "test.jpg" "Test prompt"
@@ -563,17 +563,17 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 **2. Refinement:**
 ```bash
 # Iterate on prompts with same seed
-./image2video.py --backend sora2 --seed 42 \
+./image2video.py --provider openai --seed 42 \
   -i "refs/*.jpg" "Refined prompt v1"
 
-./image2video.py --backend sora2 --seed 42 \
+./image2video.py --provider openai --seed 42 \
   -i "refs/*.jpg" "Refined prompt v2"
 ```
 
 **3. Production:**
 ```bash
 # Final generation with pro model, full resolution
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   --width 3840 --height 2160 \
   --duration 15 \
   -i "final_refs/*.jpg" "Final production prompt"
@@ -584,7 +584,7 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 ### Example 1: Product Showcase
 
 ```bash
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   --width 1920 --height 1080 \
   --duration 10 \
   -i "product_white_bg.jpg,product_angle2.jpg" \
@@ -597,7 +597,7 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 ### Example 2: Real Estate
 
 ```bash
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 3840 --height 2160 \
   --duration 20 \
   -i "entrance.jpg,living.jpg,kitchen.jpg,bedroom.jpg" \
@@ -612,7 +612,7 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 ### Example 3: Nature Scene
 
 ```bash
-./image2video.py --backend sora2 --model sora-2-pro \
+./image2video.py --provider openai --model sora-2-pro \
   --width 1920 --height 1080 \
   --duration 15 \
   -i "forest_path.jpg" \
@@ -628,7 +628,7 @@ echo "OPENAI_API_KEY=sk-proj-xxxxx" > .env
 ### Example 4: Social Media Content
 
 ```bash
-./image2video.py --backend sora2 \
+./image2video.py --provider openai \
   --width 1080 --height 1920 \
   --duration 5 \
   --loop true \
