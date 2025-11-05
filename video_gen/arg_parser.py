@@ -146,6 +146,13 @@ class SoraArgumentParser:
             result['prompt'] = arg
             return i
         
+        # Unknown flag/option - error out
+        if arg.startswith('-'):
+            raise ValueError(
+                f"Unknown argument: {arg}\n"
+                "Tip: Use -h or --help to see all available options"
+            )
+        
         return i
     
     def _handle_boolean_flag(self, arg, result):
