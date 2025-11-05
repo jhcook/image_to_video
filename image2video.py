@@ -26,7 +26,6 @@ from pathlib import Path
 
 import os
 import sys
-from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -250,6 +249,60 @@ def main():
         _handle_exceptions(e)
 
 
+def _build_image_keyword_groups(file_paths):
+    """Build image keyword groups and a compiled regex for prompt filename matching.
+    Returns (image_groups, all_keywords, keyword_pattern).
+    """
+    image_groups = defaultdict(list)
+    all_keywords = set()
+
+    for img_path in file_paths:
+        filename = Path(img_path).stem.lower()
+        keyword = re.sub(r'\d+$', '', filename)  # Remove trailing numbers
+        if keyword:
+            image_groups[keyword].append(img_path)
+            all_keywords.add(keyword)
+
+    keyword_pattern = None
+    if all_keywords:
+        alternation = "|".join(sorted((re.escape(k) for k in all_keywords), key=len, reverse=True))
+        keyword_pattern = re.compile(rf"(?:^|_)({alternation})(?=$|_|\d)")
+    return image_groups, all_keywords, keyword_pattern
+
+
+def _match_by_filename(prompt_item, keyword_pattern, image_groups):
+    """Try matching images based on keyword found in prompt filename (tuple input)."""
+    if not isinstance(prompt_item, tuple) or keyword_pattern is None:
+        return []
+    _, prompt_filename = prompt_item
+    m = keyword_pattern.search(Path(prompt_filename).stem.lower())
+    if m:
+        key = m.group(1)
+        return image_groups.get(key, [])
+    return []
+
+
+def _match_by_prompt_text(prompt, all_keywords, image_groups):
+    """Match images by searching known keywords inside the prompt text."""
+    matches = []
+    prompt_lower = prompt.lower() if isinstance(prompt, str) else ""
+    for key in all_keywords:
+        if key in prompt_lower:
+            matches.extend(image_groups[key])
+    return matches
+
+
+def _match_images_for_prompt(prompt_item, image_groups, all_keywords, keyword_pattern, file_paths):
+    """Match images for a single prompt using filename and text matching strategies."""
+    prompt = prompt_item[0] if isinstance(prompt_item, tuple) else prompt_item
+    matched_images = _match_by_filename(prompt_item, keyword_pattern, image_groups)
+    if not matched_images:
+        matched_images = _match_by_prompt_text(prompt, all_keywords, image_groups)
+    if not matched_images:
+        matched_images = file_paths[:]
+    return matched_images
+
+
 def _distribute_images_to_clips(file_paths, prompts, image_groups_spec=None):
     """
     Intelligently distribute reference images among clips.
@@ -286,49 +339,14 @@ def _distribute_images_to_clips(file_paths, prompts, image_groups_spec=None):
     if image_groups_spec:
         return _validate_and_log_distribution(image_groups_spec, prompts)
     
-    # Extract keywords from filenames for Methods 2 & 3
-    image_groups = defaultdict(list)
-    all_keywords = set()
-    
-    for img_path in file_paths:
-        filename = Path(img_path).stem.lower()
-        keyword = re.sub(r'\d+$', '', filename)  # Remove trailing numbers
-        
-        if keyword:
-            image_groups[keyword].append(img_path)
-            all_keywords.add(keyword)
+    image_groups, all_keywords, keyword_pattern = _build_image_keyword_groups(file_paths)
     
     # Method 3: Try matching prompt filenames with image keywords
     result = []
     for prompt_item in prompts:
-        matched_images = []
-        
-        # Handle both string prompts and (prompt, filename) tuples
-        if isinstance(prompt_item, tuple):
-            prompt, prompt_filename = prompt_item
-            # Extract keyword from prompt filename (e.g., 'foyer' from 'fr_foyer1.txt')
-            # Supports patterns like: fr_foyer1, foyer_clip1, 01_foyer, etc.
-            prompt_keyword = re.search(r'(?:^|_)(foyer|living|kitchen|garage|bedroom|bathroom|dining|hallway|entry|stairs)', 
-                                      Path(prompt_filename).stem.lower())
-            if prompt_keyword:
-                keyword = prompt_keyword.group(1)
-                if keyword in image_groups:
-                    matched_images = image_groups[keyword]
-        else:
-            prompt = prompt_item
-        
-        # Method 2: Fallback to keyword matching in prompt text
-        prompt_lower = prompt.lower() if isinstance(prompt, str) else ""
-        matched_images = []
-        
-        for keyword in all_keywords:
-            if keyword in prompt_lower:
-                matched_images.extend(image_groups[keyword])
-        
-        # Fallback: Use all images if no match
-        if not matched_images:
-            matched_images = file_paths[:]
-        
+        matched_images = _match_images_for_prompt(
+            prompt_item, image_groups, all_keywords, keyword_pattern, file_paths
+        )
         result.append(matched_images)
     
     return _validate_and_log_distribution(result, prompts)
