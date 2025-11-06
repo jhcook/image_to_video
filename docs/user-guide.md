@@ -11,6 +11,7 @@ Complete guide to using the Multi-Backend Video Generator.
 - [Image Input](#image-input)
 - [Video Parameters](#video-parameters)
 - [Multi-Clip Stitching](#multi-clip-stitching)
+- [Artifact Management](#artifact-management)
 - [Command-Line Options](#command-line-options)
 - [Configuration](#configuration)
 - [Best Practices](#best-practices)
@@ -478,6 +479,96 @@ See **[Advanced Stitching Guide](advanced/stitching.md)** for detailed technique
   -i "refs/*.jpg" \
   -p "Opening shot" "Middle transition" "Final reveal"
 ```
+
+## Artifact Management
+
+The system automatically tracks all generated videos as "artifacts" with comprehensive metadata. This allows you to download videos later, even if the original generation was interrupted.
+
+### Why Artifact Management?
+
+- **Network Recovery**: Download videos later if network issues interrupted the original generation
+- **Generation History**: Keep track of all videos you've created across sessions
+- **Batch Management**: Download multiple videos from different providers efficiently
+- **Storage Management**: Organize downloaded videos with consistent naming
+
+### Basic Artifact Commands
+
+**List all generated videos:**
+```bash
+./image2video.py --list-artifacts
+```
+
+**Filter by provider:**
+```bash
+./image2video.py --list-artifacts --provider runway
+./image2video.py --list-artifacts --provider openai
+```
+
+**Filter by status:**
+```bash
+./image2video.py --list-artifacts --status completed
+./image2video.py --list-artifacts --status downloaded
+```
+
+**Download a specific video:**
+```bash
+./image2video.py --download ce88ed9c-89c9-483f-ae46-8259c64dd180
+```
+
+**Download with custom path:**
+```bash
+./image2video.py --download <task_id> --output ~/Videos/my_video.mp4
+```
+
+**Force overwrite existing file:**
+```bash
+./image2video.py --download <task_id> --force
+```
+
+### Artifact Workflow Example
+
+1. **Generate a video** (may succeed but download fails):
+   ```bash
+   ./image2video.py --provider runway -i photo.jpg "Add gentle movement"
+   # Generation succeeds, but download fails due to network issues
+   ```
+
+2. **Check what's available**:
+   ```bash
+   ./image2video.py --list-artifacts
+   # Shows the video with status "completed" - ready for download
+   ```
+
+3. **Download later when network is stable**:
+   ```bash
+   ./image2video.py --download ce88ed9c-89c9-483f-ae46-8259c64dd180
+   # Downloads the video and updates status to "downloaded"
+   ```
+
+### File Organization
+
+Downloaded videos are organized in the `artifacts/` directory:
+```
+artifacts/
+├── artifacts.json          # Metadata database
+└── downloads/
+    ├── runway_<task_id>_gen4_turbo.mp4
+    ├── openai_<task_id>_sora-2.mp4
+    └── google_<task_id>_veo-3.1.mp4
+```
+
+### Alternative: Module Approach
+
+For advanced users or scripting, artifacts can also be managed via the Python module:
+```bash
+# List artifacts
+python -m video_gen.artifact_manager list
+
+# Download specific video
+python -m video_gen.artifact_manager download <task_id>
+```
+
+*For complete artifact management documentation, see [Artifact Management Guide](artifact-management.md).*
 
 ## Configuration
 

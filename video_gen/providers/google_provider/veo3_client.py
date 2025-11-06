@@ -39,7 +39,6 @@ from video_gen.logger import get_library_logger
 
 
 # HTTP Status Code Constants
-HTTP_OK = 200
 HTTP_BAD_REQUEST = 400
 HTTP_UNAUTHORIZED = 401
 HTTP_NOT_FOUND = 404
@@ -182,11 +181,96 @@ class Veo3APIClient:
         
         return self._make_request_with_retry(request_data, model)
     
+    def _encode_source_frame(self, source_frame: Optional[str]) -> Optional[Dict[str, str]]:
+        """
+        Encode a source frame image to base64 for the API request.
+        
+        Args:
+            source_frame: Path to the source frame image file
+            
+        Returns:
+            Dictionary with base64 encoded image or None if encoding fails
+        """
+        if not source_frame:
+            return None
+            
+        self.logger.info(f"Using source frame for seamless stitching: {source_frame}")
+        try:
+            with open(source_frame, 'rb') as f:
+                image_data = base64.b64encode(f.read()).decode('utf-8')
+                self.logger.debug(f"Encoded source frame: {source_frame}")
+                return {"bytesBase64Encoded": image_data}
+        except Exception as e:
+            self.logger.error(f"Failed to encode source frame {source_frame}: {e}")
+            raise
+    
+    def _encode_reference_images(self, reference_images: Optional[List[str]]) -> List[Dict[str, Any]]:
+        """
+        Encode reference images to base64 for the API request.
+        
+        Args:
+            reference_images: List of paths to reference image files
+            
+        Returns:
+            List of dictionaries with base64 encoded images
+        """
+        if not reference_images:
+            return []
+            
+        self.logger.debug(f"Encoding {len(reference_images)} reference images")
+        encoded_images = []
+        
+        for image_path in reference_images:
+            try:
+                with open(image_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode('utf-8')
+                    encoded_images.append({
+                        "image": {
+                            "bytesBase64Encoded": image_data
+                        }
+                    })
+                self.logger.debug(f"Encoded reference image: {image_path}")
+            except Exception as e:
+                # Skip images that can't be encoded
+                self.logger.warning(f"Failed to encode reference image {image_path}: {e}")
+        
+        if encoded_images:
+            self.logger.info(f"Added {len(encoded_images)} reference images to request")
+            
+        return encoded_images
+    
+    def _build_video_config(self, width: int, height: int, fps: int, 
+                          duration_seconds: int, seed: Optional[int]) -> Dict[str, Any]:
+        """
+        Build the video configuration part of the API request.
+        
+        Args:
+            width: Video width in pixels
+            height: Video height in pixels
+            fps: Frames per second
+            duration_seconds: Video duration in seconds
+            seed: Optional random seed
+            
+        Returns:
+            Dictionary containing video configuration
+        """
+        config = {
+            "width": width,
+            "height": height,
+            "fps": fps,
+            "duration_seconds": duration_seconds
+        }
+        
+        if seed is not None:
+            config["seed"] = seed
+            
+        return config
+
     def _prepare_request(
         self,
         prompt: str,
-        reference_images: List[str] = None,
-        source_frame: str = None,
+        reference_images: Optional[List[str]] = None,
+        source_frame: Optional[str] = None,
         width: int = 1280,
         height: int = 720,
         fps: int = 24,
@@ -214,89 +298,24 @@ class Veo3APIClient:
             
         Returns:
             Dictionary containing the complete API request structure
-            
-        Request Structure:
-            {
-              "instances": [{
-                "prompt": str,
-                "image": {                          # Source frame (optional)
-                  "bytesBase64Encoded": str
-                },
-                "reference_images": [               # Reference images (optional)
-                  {"image": {"bytesBase64Encoded": str}},
-                  ...
-                ],
-                "video_config": {
-                  "width": int,
-                  "height": int,
-                  "fps": int,
-                  "duration_seconds": int,
-                  "seed": int (optional)
-                }
-              }]
-            }
-            
-        Processing:
-            - Source frame: Read, encode to base64, set as `image` parameter
-            - Reference images: Read each, encode to base64, add to array
-            - Images validated before encoding (existence, readability)
-            - Encoding failures logged but don't halt processing
         """
-        
-        # Base request structure for Veo-3
-        request_data = {
-            "instances": [{
-                "prompt": prompt,
-                "video_config": {
-                    "width": width,
-                    "height": height,
-                    "fps": fps,
-                    "duration_seconds": duration_seconds
-                }
-            }]
+        # Build base request structure
+        instance = {
+            "prompt": prompt,
+            "video_config": self._build_video_config(width, height, fps, duration_seconds, seed)
         }
         
-        # Add seed if provided
-        if seed is not None:
-            request_data["instances"][0]["video_config"]["seed"] = seed
+        # Add source frame if provided
+        source_frame_data = self._encode_source_frame(source_frame)
+        if source_frame_data:
+            instance["image"] = source_frame_data
         
-        # Add source frame (first frame) if provided - for stitching
-        if source_frame:
-            self.logger.info(f"Using source frame for seamless stitching: {source_frame}")
-            try:
-                with open(source_frame, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode('utf-8')
-                    request_data["instances"][0]["image"] = {
-                        "bytesBase64Encoded": image_data
-                    }
-                self.logger.debug(f"Encoded source frame: {source_frame}")
-            except Exception as e:
-                self.logger.error(f"Failed to encode source frame {source_frame}: {e}")
-                raise
+        # Add reference images if provided
+        encoded_ref_images = self._encode_reference_images(reference_images)
+        if encoded_ref_images:
+            instance["reference_images"] = encoded_ref_images
         
-        # Add reference images if provided (up to 3 for style/content guidance)
-        if reference_images:
-            self.logger.debug(f"Encoding {len(reference_images)} reference images")
-            encoded_images = []
-            for image_path in reference_images:
-                try:
-                    with open(image_path, 'rb') as f:
-                        image_data = base64.b64encode(f.read()).decode('utf-8')
-                        encoded_images.append({
-                            "image": {
-                                "bytesBase64Encoded": image_data
-                            }
-                        })
-                    self.logger.debug(f"Encoded reference image: {image_path}")
-                except Exception as e:
-                    # Skip images that can't be encoded
-                    self.logger.warning(f"Failed to encode reference image {image_path}: {e}")
-            
-            if encoded_images:
-                request_data["instances"][0]["reference_images"] = encoded_images
-                self.logger.info(f"Added {len(encoded_images)} reference images to request")
-        
-        return request_data
+        return {"instances": [instance]}
     
     def _make_request_with_retry(self, request_data: Dict[str, Any], model: str = "veo-3.0-generate-001") -> bytes:
         """Make API request with exponential backoff retry logic."""

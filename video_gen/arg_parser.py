@@ -6,9 +6,10 @@ for both Sora-2 and Veo-3 providers.
 """
 
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, cast
 
-from .config import get_available_providers, print_available_models, print_available_providers, VideoProvider
+from .config import get_available_providers, print_available_providers, print_available_models, VideoProvider
+from .cli import HelpGenerator, ArgumentValidator, ArtifactCLIHandler, ProviderHandler
 
 
 # Supported provider Names
@@ -23,7 +24,20 @@ MIN_STITCH_PROMPTS = 2
 
 
 class SoraArgumentParser:
-    def parse_arguments(self, argv=None):
+    def __init__(self):
+        """Initialize the argument parser with helper modules."""
+        self.available_providers = get_available_providers()
+        self.help_generator = HelpGenerator(self.available_providers)
+        self.validator = ArgumentValidator(self.available_providers)
+        self.artifact_handler = ArtifactCLIHandler()
+        self.provider_handler = ProviderHandler()
+    
+    @property
+    def help_text(self) -> str:
+        """Get the help text."""
+        return self.help_generator.generate_help_text()
+    
+    def parse_arguments(self, argv: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Parse command-line arguments using custom logic.
         Returns a dictionary of parsed arguments.
@@ -38,22 +52,33 @@ class SoraArgumentParser:
 
         # Handle --list-providers
         if '--list-providers' in argv:
-            self._handle_list_providers()
+            self.provider_handler.handle_list_providers()
 
         # Handle --list-models
         if '--list-models' in argv:
-            self._handle_list_models(argv)
+            self.provider_handler.handle_list_models(argv)
+
+        # Handle --list-artifacts
+        if '--list-artifacts' in argv:
+            self.artifact_handler.handle_list_artifacts(argv)
+
+        # Handle --download
+        if '--download' in argv:
+            self.artifact_handler.handle_download(argv)
 
         # Parse all arguments
         result = self._parse_all_arguments(argv)
 
         # Validate and finalize
-        self._validate_and_finalize(result)
+        self.validator.validate_and_finalize(result)
         
         return result
     
-    def _parse_all_arguments(self, argv):
+    def _parse_all_arguments(self, argv: Optional[List[str]]) -> Dict[str, Any]:
         """Parse all command-line arguments into result dictionary."""
+        if argv is None:
+            argv = sys.argv[1:]
+        
         result = self._default_result_dict()
         i = 0
         while i < len(argv):
@@ -62,7 +87,7 @@ class SoraArgumentParser:
             i += 1
         return result
     
-    def _validate_and_finalize(self, result):
+    def _validate_and_finalize(self, result: Dict[str, Any]) -> None:
         """Validate arguments and finalize prompt handling."""
         self._validate_providers(result['provider'])
         
@@ -72,7 +97,7 @@ class SoraArgumentParser:
             self._handle_prompt_conversion(result)
             self._validate_prompt_provided(result)
     
-    def _handle_prompt_conversion(self, result):
+    def _handle_prompt_conversion(self, result: Dict[str, Any]) -> None:
         """Convert prompts list to single prompt for non-stitch mode."""
         if not result['prompts'] or result['prompt']:
             return
@@ -82,20 +107,21 @@ class SoraArgumentParser:
             self._validate_prompt_not_empty(result['prompt'])
             # Normalize: clear prompts when using single prompt in non-stitch mode
             result['prompts'] = []
-        elif len(result['prompts']) > 1:
+        elif len(result['prompts']) > 1 and not result.get('stitch', False):
             raise ValueError(f"Multiple prompts require --stitch mode.\nFound {len(result['prompts'])} prompts but --stitch not enabled.\nTip: Add --stitch flag or use only one -p argument")
+            # If stitch is enabled, keep prompts as list for stitching mode
     
-    def _validate_prompt_not_empty(self, prompt):
+    def _validate_prompt_not_empty(self, prompt: str) -> None:
         """Validate that prompt is not empty."""
         if not prompt or not prompt.strip():
             raise ValueError("Prompt cannot be empty.\nTip: Check that your prompt file exists and contains text if using $(cat filename)")
     
-    def _validate_prompt_provided(self, result):
+    def _validate_prompt_provided(self, result: Dict[str, Any]) -> None:
         """Ensure prompt is provided for non-stitch mode."""
         if not result['prompt']:
             raise ValueError("No prompt provided.\nTip: Provide a prompt as positional argument or use -p flag\nExample: ./image2video.py 'Your prompt here'\n         ./image2video.py -p 'Your prompt here'")
 
-    def _default_result_dict(self):
+    def _default_result_dict(self) -> Dict[str, Any]:
         return {
             'images': [],
             'prompt': None,
@@ -117,7 +143,7 @@ class SoraArgumentParser:
             'google-clear-cache': False,
         }
 
-    def _handle_option(self, arg, args, i, result):
+    def _handle_option(self, arg: str, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Route argument to appropriate handler."""
         # Complex argument handlers
         if arg in ['-i', '--images']:
@@ -141,6 +167,11 @@ class SoraArgumentParser:
         if arg == '--out-paths':
             return self._parse_out_paths(args, i, result)
         
+        # Handle remaining cases
+        return self._handle_remaining_option_cases(arg, result, i)
+    
+    def _handle_remaining_option_cases(self, arg: str, result: Dict[str, Any], i: int) -> int:
+        """Handle positional prompts and unknown arguments."""
         # Positional prompt
         if self._is_positional_prompt(arg, result):
             result['prompt'] = arg
@@ -153,9 +184,13 @@ class SoraArgumentParser:
                 "Tip: Use -h or --help to see all available options"
             )
         
-        return i
+        # Non-flag positional argument that's not a prompt
+        raise ValueError(
+            f"Unexpected positional argument: {arg}\n"
+            "Tip: Positional arguments are only allowed for prompts when no -p is used"
+        )
     
-    def _handle_boolean_flag(self, arg, result):
+    def _handle_boolean_flag(self, arg: str, result: Dict[str, Any]) -> bool:
         """Handle boolean flag arguments."""
         boolean_flags = {
             '--stitch': 'stitch',
@@ -169,7 +204,7 @@ class SoraArgumentParser:
             return True
         return False
     
-    def _parse_out_paths(self, args, i, result):
+    def _parse_out_paths(self, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Parse --out-paths argument."""
         i += 1
         while i < len(args) and not args[i].startswith('-'):
@@ -177,7 +212,7 @@ class SoraArgumentParser:
             i += 1
         return i - 1
     
-    def _is_positional_prompt(self, arg, result):
+    def _is_positional_prompt(self, arg: str, result: Dict[str, Any]) -> bool:
         """Check if argument is a positional prompt."""
         return not arg.startswith('-') and not result['prompt'] and not result['prompts']
     """
@@ -193,45 +228,117 @@ class SoraArgumentParser:
     Standard argparse can't distinguish between the expanded files and the prompt
     in this scenario, so we use custom logic to intelligently separate them.
     """
-    
-    def __init__(self):
-        """Initialize the argument parser."""
-        self.available_providers = get_available_providers()
-        self.help_text = self._generate_help_text()
+
     
     def _handle_list_providers(self) -> None:
         """Handle --list-providers flag and exit."""
         print_available_providers()
         sys.exit(0)
     
-    def _handle_list_models(self, args: list) -> None:
+    def _handle_list_models(self, args: List[str]) -> None:
         """Handle --list-models flag and exit."""
         providers_to_show = self._find_providers_for_list_models(args)
         print_available_models(providers_to_show)
         sys.exit(0)
     
-    def _find_providers_for_list_models(self, args: list) -> str:
+    def _find_providers_for_list_models(self, args: List[str]) -> Optional[VideoProvider]:
         """Find which providers to show models for."""
         list_models_idx = args.index('--list-models')
         
         # Check if providers name follows --list-models
         if list_models_idx + 1 < len(args) and args[list_models_idx + 1] in SUPPORTED_PROVIDERS:
-            return args[list_models_idx + 1]
+            return cast(VideoProvider, args[list_models_idx + 1])
         
-        # Otherwise, scan for --providers flag
+        # Return default provider from environment or None for all
         return self._find_providers_flag_value(args)
     
-    def _find_providers_flag_value(self, args: list) -> Optional[str]:
-        """Extract provider value from --provider, --provider, or -b flag."""
+    def _find_providers_flag_value(self, args: List[str]) -> Optional[VideoProvider]:
+        """Extract provider value from --provider flag."""
         for flag in ['--provider']:
             if flag in args:
                 try:
                     providers_idx = args.index(flag)
                     if providers_idx + 1 < len(args):
-                        return args[providers_idx + 1]
+                        provider_str = args[providers_idx + 1]
+                        if provider_str in SUPPORTED_PROVIDERS:
+                            return cast(VideoProvider, provider_str)
                 except (ValueError, IndexError):
                     pass
         return None
+    
+    def _handle_list_artifacts(self, argv: List[str]) -> None:
+        """Handle --list-artifacts flag and exit."""
+        from .artifact_manager import get_artifact_manager
+        
+        # Parse optional filters
+        provider_filter = None
+        status_filter = None
+        
+        # Look for --provider filter
+        if '--provider' in argv:
+            try:
+                provider_idx = argv.index('--provider')
+                if provider_idx + 1 < len(argv):
+                    provider_filter = argv[provider_idx + 1]
+            except (ValueError, IndexError):
+                pass
+        
+        # Look for --status filter  
+        if '--status' in argv:
+            try:
+                status_idx = argv.index('--status')
+                if status_idx + 1 < len(argv):
+                    status_filter = argv[status_idx + 1]
+            except (ValueError, IndexError):
+                pass
+        
+        # Display artifacts
+        manager = get_artifact_manager()
+        manager.print_artifacts_table(provider_filter, status_filter)
+        sys.exit(0)
+    
+    def _handle_download(self, argv: List[str]) -> None:
+        """Handle --download flag and exit."""
+        from .artifact_manager import get_artifact_manager
+        
+        # Find task ID
+        try:
+            download_idx = argv.index('--download')
+            if download_idx + 1 >= len(argv):
+                print("❌ Error: --download requires a task ID")
+                print("Usage: --download <task_id>")
+                print("Use --list-artifacts to see available task IDs")
+                sys.exit(1)
+            
+            task_id = argv[download_idx + 1]
+        except ValueError:
+            print("❌ Error: --download flag not found")
+            sys.exit(1)
+        
+        # Parse optional output path
+        output_path = None
+        if '--output' in argv:
+            try:
+                output_idx = argv.index('--output')
+                if output_idx + 1 < len(argv):
+                    output_path = argv[output_idx + 1]
+            except (ValueError, IndexError):
+                pass
+        
+        # Parse optional force flag
+        force = '--force' in argv
+        
+        # Download the artifact
+        manager = get_artifact_manager()
+        result = manager.download_artifact(task_id, output_path, force)
+        
+        if result:
+            print(f"✅ Downloaded: {result}")
+            sys.exit(0)
+        else:
+            print(f"❌ Download failed for task ID: {task_id}")
+            print("Use --list-artifacts to see available task IDs")
+            sys.exit(1)
     
     def _validate_providers(self, provider: str) -> None:
         """Validate that providers is supported and available."""
@@ -256,37 +363,37 @@ class SoraArgumentParser:
                 "Example: --stitch -p 'Prompt 1' 'Prompt 2' 'Prompt 3'"
             )
     
-    def _parse_provider_arg(self, args: list, i: int, result: Dict[str, Any]) -> int:
+    def _parse_provider_arg(self, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Parse provider argument with validation."""
         provider = self._parse_string_arg(args, i, '--provider')
         self._validate_providers(provider)
         result['provider'] = provider
         return i + 1
     
-    def _parse_int_option(self, arg: str, args: list, i: int, result: Dict[str, Any]) -> int:
+    def _parse_int_option(self, arg: str, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Parse integer option arguments."""
         key = arg.lstrip('-')
         result[key] = self._parse_int_arg(args, i, arg)
         return i + 1
     
-    def _parse_string_option(self, arg: str, args: list, i: int, result: Dict[str, Any]) -> int:
+    def _parse_string_option(self, arg: str, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Parse string option arguments."""
         key_map = {'-m': 'model', '--model': 'model', '-o': 'output', '--output': 'output'}
         key = key_map[arg]
         result[key] = self._parse_string_arg(args, i, arg)
         return i + 1
     
-    def _parse_images_arg(self, args: list, i: int, result: Dict[str, Any]) -> int:
+    def _parse_images_arg(self, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Parse -i/--images argument."""
         i += 1
-        collected = []
+        collected: List[str] = []
         
         while i < len(args) and not args[i].startswith('-'):
             collected.append(args[i])
             i += 1
         
         if collected:
-            last_arg = collected[-1]
+            last_arg: str = collected[-1]
             if self._looks_like_file(last_arg):
                 result['images'].extend(collected)
             else:
@@ -296,7 +403,7 @@ class SoraArgumentParser:
         
         return i - 1
     
-    def _parse_prompts_arg(self, args: list, i: int, result: Dict[str, Any]) -> int:
+    def _parse_prompts_arg(self, args: List[str], i: int, result: Dict[str, Any]) -> int:
         """Parse -p/--prompts argument."""
         i += 1
         while i < len(args) and not args[i].startswith('-'):
@@ -323,7 +430,7 @@ class SoraArgumentParser:
             ('/' in arg and '\n' not in arg)
         )
     
-    def _parse_int_arg(self, args: list, index: int, option_name: str) -> int:
+    def _parse_int_arg(self, args: List[str], index: int, option_name: str) -> int:
         """Parse an integer argument with error handling."""
         if index + 1 >= len(args):
             raise ValueError(f"{option_name} requires a value")
@@ -332,7 +439,7 @@ class SoraArgumentParser:
         except ValueError:
             raise ValueError(f"{option_name} requires an integer value")
     
-    def _parse_string_arg(self, args: list, index: int, option_name: str) -> str:
+    def _parse_string_arg(self, args: List[str], index: int, option_name: str) -> str:
         """Parse a string argument with error handling."""
         if index + 1 >= len(args):
             raise ValueError(f"{option_name} requires a value")
@@ -358,6 +465,10 @@ options:
   --list-models [PROVIDER]
                         List available models for all providers or a specific one
                         Example: --list-models runway
+  --list-artifacts      List all generated video artifacts with metadata and download status
+                        Optionally filter by: --provider PROVIDER --status STATUS
+  --download TASK_ID    Download a specific video artifact by task ID
+                        Optionally specify: --output PATH --force (to overwrite existing files)
   -i, --images IMAGES   Image file paths (supports multiple files and shell wildcards)
   --provider PROVIDER   Video generation provider: 'openai', 'azure', 'google', or 'runway' (default: openai)
                         {available_str}
@@ -398,6 +509,17 @@ Google Authentication:
                         Use this to force re-authentication or switch accounts
                         Removes token.pickle file from google_provider directory
 
+Artifact Management:
+  --list-artifacts      List all generated video artifacts with metadata
+                        Shows: Task ID, Provider, Model, Status, Prompt, Created date
+                        Optional filters: --provider (openai|azure|google|runway)
+                                         --status (pending|completed|failed|downloaded)
+  --download TASK_ID    Download a video artifact by its unique task ID
+                        Downloads to artifacts/downloads/ by default
+                        Optional parameters: --output PATH, --force (overwrite existing)
+                        Automatically updates artifact status to 'downloaded'
+                        Resumes interrupted downloads when possible
+
 provider Requirements:
   Sora-2 (OpenAI):      Set OPENAI_API_KEY environment variable (API key)
   Azure Sora:           Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT
@@ -417,6 +539,25 @@ Examples:
   
   # List models for specific provider
   image2video.py --list-models runway
+  
+  # Artifact Management
+  # List all generated video artifacts
+  image2video.py --list-artifacts
+  
+  # List artifacts by provider
+  image2video.py --list-artifacts --provider runway
+  
+  # List artifacts by status (pending, completed, failed, downloaded)
+  image2video.py --list-artifacts --status completed
+  
+  # Download a specific video by task ID
+  image2video.py --download ce88ed9c-89c9-483f-ae46-8259c64dd180
+  
+  # Download with custom output path
+  image2video.py --download ce88ed9c-89c9-483f-ae46-8259c64dd180 --output my_video.mp4
+  
+  # Force overwrite existing file
+  image2video.py --download ce88ed9c-89c9-483f-ae46-8259c64dd180 --force
   
   # Text-only generation with default OpenAI Sora-2
   image2video.py "A serene mountain landscape with flowing water"
@@ -474,4 +615,7 @@ Tips:
   - Use Ctrl+C to cancel during capacity retry attempts
   - Generated videos are saved in MP4 format with H.264 encoding
   - Set up API credentials for both providers to compare their outputs
+  - All generated videos are automatically tracked as artifacts for later download
+  - Use --list-artifacts to see all your generated videos and their status
+  - Videos can be downloaded later even if generation was interrupted or failed initially
 """

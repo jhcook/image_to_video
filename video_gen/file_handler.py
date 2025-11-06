@@ -89,14 +89,70 @@ class FileHandler:
             purpose = self.guess_file_purpose(mime_type)
             self.logger.debug(f"Uploading {path_obj.name} (mime={mime_type}, purpose={purpose})")
             
-            # Upload file to OpenAI
-            with path_obj.open("rb") as file_handle:
-                uploaded = self.client.files.create(file=file_handle, purpose=purpose)
-            file_ids.append(uploaded.id)
-            self.logger.info(f"Uploaded {path_obj.name} -> {uploaded.id}")
+            # Upload file to OpenAI with error handling
+            try:
+                with path_obj.open("rb") as file_handle:
+                    uploaded = self.client.files.create(file=file_handle, purpose=purpose)
+                file_ids.append(uploaded.id)
+                self.logger.info(f"Uploaded {path_obj.name} -> {uploaded.id}")
+            except Exception as e:
+                self._handle_upload_error(e, path_obj.name)
         
         self.logger.info(f"All {len(file_ids)} files uploaded successfully")
         return file_ids
+    
+    def _handle_upload_error(self, error: Exception, filename: str) -> None:
+        """Handle file upload errors with user-friendly messages."""
+        from .exceptions import AuthenticationError
+        import openai
+        
+        error_str = str(error).lower()
+        
+        # Handle SSL/Connection errors
+        if "ssl" in error_str or "certificate" in error_str or isinstance(error, (openai.APIConnectionError,)):
+            print("\n" + "="*60)
+            print("🔒 SSL/Connection Error")
+            print("="*60)
+            print(f"Failed to upload '{filename}' due to connection issues.")
+            print("\n💡 Quick fixes:")
+            print("   • Check your internet connection")
+            print("   • Try running: pip install --upgrade certifi")
+            print("   • If using corporate network, check proxy settings")
+            print("   • Temporarily try a different network (mobile hotspot)")
+            print("="*60)
+            raise AuthenticationError("SSL/Connection error during file upload")
+        
+        # Handle authentication errors
+        elif isinstance(error, openai.AuthenticationError) or "authentication" in error_str:
+            print("\n" + "="*60)
+            print("🔑 Authentication Error")
+            print("="*60)
+            print(f"Failed to upload '{filename}' - invalid API key.")
+            print("\n💡 Check your OpenAI API key:")
+            print("   • Verify OPENAI_API_KEY is set correctly")
+            print("   • Ensure the key hasn't expired")
+            print("   • Visit: https://platform.openai.com/api-keys")
+            print("="*60)
+            raise AuthenticationError("Invalid OpenAI API key")
+        
+        # Handle rate limiting
+        elif isinstance(error, openai.RateLimitError) or "rate limit" in error_str:
+            print("\n" + "="*60)
+            print("⏳ Rate Limit Error")
+            print("="*60)
+            print(f"Upload rate limited for '{filename}'. Please wait and try again.")
+            print("="*60)
+            raise error
+        
+        # Handle other OpenAI errors
+        elif hasattr(error, 'response') or isinstance(error, openai.APIError):
+            print(f"\n❌ API error uploading '{filename}': {error}")
+            raise error
+        
+        # Handle unexpected errors
+        else:
+            print(f"\n❌ Unexpected error uploading '{filename}': {error}")
+            raise error
     
     @staticmethod
     def expand_image_paths(image_args: Union[List[str], str, None]) -> List[str]:

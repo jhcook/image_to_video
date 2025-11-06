@@ -250,18 +250,23 @@ class RunwayGen4Client:
         # RunwayML uses ratio format like "1280:720"
         ratio = f"{width}:{height}"
 
-        # Encode the source image
+        # Encode the source image (if provided)
         self.logger.debug(f"Encoding source image: {image_path}")
-        prompt_image = self._encode_image_to_base64(image_path)
+        prompt_image = None
+        if image_path is not None:
+            prompt_image = self._encode_image_to_base64(image_path)
 
         # Build request payload
         payload: Dict[str, Any] = {
             "model": model,
             "promptText": prompt,
-            "promptImage": prompt_image,
             "ratio": ratio,
             "duration": duration
         }
+
+        # Add image if provided (image-to-video), otherwise text-to-video
+        if prompt_image is not None:
+            payload["promptImage"] = prompt_image
 
         # Add seed if provided
         if seed is not None:
@@ -409,6 +414,116 @@ class RunwayGen4Client:
         """
         handle_capacity_retry(retry_count, self.config, self.logger)
 
+    def _parse_polling_response(self, response) -> Dict[str, Any]:
+        """
+        Parse and validate the polling response from RunwayML API.
+        
+        Args:
+            response: The HTTP response from the polling request
+            
+        Returns:
+            Parsed task data as dictionary
+            
+        Raises:
+            RuntimeError: If response is invalid
+        """
+        try:
+            task_data = response.json()
+        except ValueError as e:
+            self.logger.error(f"Failed to parse JSON response: {response.text}")
+            raise RuntimeError(f"Invalid JSON response from RunwayML: {e}")
+        
+        if not isinstance(task_data, dict):
+            self.logger.error(f"Expected dict, got {type(task_data)}: {task_data}")
+            raise RuntimeError(f"Unexpected response format from RunwayML: {type(task_data)}")
+        
+        return task_data
+
+    def _handle_task_status(self, task_data: Dict[str, Any]) -> str:
+        """
+        Check task status and handle completion states.
+        
+        Args:
+            task_data: Parsed task response data
+            
+        Returns:
+            Task status string ('SUCCEEDED', 'FAILED', 'IN_PROGRESS')
+            
+        Raises:
+            RuntimeError: If task failed
+        """
+        status = task_data.get("status")
+
+        if status == "SUCCEEDED":
+            return "SUCCEEDED"
+
+        if status == "FAILED":
+            error_msg = task_data.get("failure", {}).get("reason", "Unknown error")
+            raise RuntimeError(f"RunwayML task failed: {error_msg}")
+
+        # Task is still in progress
+        return "IN_PROGRESS"
+
+    def _handle_polling_exceptions(self, e: Exception, poll_interval: int) -> bool:
+        """
+        Handle exceptions during polling and decide whether to retry.
+        
+        Args:
+            e: The exception that occurred
+            poll_interval: Seconds to wait before retry
+            
+        Returns:
+            True if should continue polling, False if should give up
+            
+        Raises:
+            RuntimeError: For SSL certificate verification failures
+        """
+        if isinstance(e, requests.exceptions.SSLError):
+            error_msg = str(e)
+            if "CERTIFICATE_VERIFY_FAILED" in error_msg:
+                self.logger.error(
+                    "SSL certificate verification failed during polling. "
+                    "See earlier logs for troubleshooting steps."
+                )
+                raise RuntimeError(
+                    f"SSL certificate verification failed. Cannot poll RunwayML task.\n"
+                    f"Original error: {error_msg}"
+                )
+            # Other SSL errors, retry
+            self.logger.warning(f"SSL error during polling, retrying: {error_msg}")
+            time.sleep(poll_interval)
+            return True
+        
+        if isinstance(e, requests.exceptions.Timeout):
+            self.logger.warning("Request timeout during polling, retrying...")
+            time.sleep(poll_interval)
+            return True
+            
+        if isinstance(e, requests.exceptions.ConnectionError):
+            self.logger.warning("Connection error during polling, retrying...")
+            time.sleep(poll_interval)
+            return True
+            
+        if isinstance(e, requests.exceptions.HTTPError):
+            # For 5xx server errors, retry; for 4xx client errors, give up
+            status_code = getattr(e.response, 'status_code', None)
+            if status_code and 500 <= status_code < 600:
+                self.logger.warning(f"Server error {status_code} during polling, retrying...")
+                time.sleep(poll_interval)
+                return True
+            else:
+                self.logger.error(f"Client error {status_code} during polling, giving up")
+                return False
+        
+        if isinstance(e, requests.exceptions.RequestException):
+            self.logger.warning(f"Request exception during polling, retrying: {e}")
+            time.sleep(poll_interval)
+            return True
+            
+        # Unknown exception, don't retry
+        self.logger.error(f"Unknown exception during polling: {e}")
+        return False
+
     def poll_task(self, task_id: str, poll_interval: int = 5) -> Dict[str, Any]:
         """
         Poll a task until it completes.
@@ -431,39 +546,21 @@ class RunwayGen4Client:
                     timeout=10
                 )
                 response.raise_for_status()
-                task_data = response.json()
-
-                status = task_data.get("status")
-
+                
+                task_data = self._parse_polling_response(response)
+                status = self._handle_task_status(task_data)
+                
+                # If task succeeded, return the data
                 if status == "SUCCEEDED":
                     return task_data
-
-                if status == "FAILED":
-                    error_msg = task_data.get("failure", {}).get("reason", "Unknown error")
-                    raise RuntimeError(f"RunwayML task failed: {error_msg}")
-
+                
                 # Otherwise keep polling
                 time.sleep(poll_interval)
-                continue
 
-            except requests.exceptions.SSLError as e:
-                error_msg = str(e)
-                if "CERTIFICATE_VERIFY_FAILED" in error_msg:
-                    self.logger.error(
-                        "SSL certificate verification failed during polling. "
-                        "See earlier logs for troubleshooting steps."
-                    )
-                    raise RuntimeError(
-                        f"SSL certificate verification failed. Cannot poll RunwayML task.\n"
-                        f"Original error: {error_msg}"
-                    )
-                # Other SSL errors, retry
-                time.sleep(poll_interval)
-                continue
-
-            except requests.exceptions.RequestException:
-                time.sleep(poll_interval)
-                continue
+            except Exception as e:
+                should_continue = self._handle_polling_exceptions(e, poll_interval)
+                if not should_continue:
+                    raise
 
     def download_video(self, url: str, output_path: str) -> str:
         """
@@ -549,13 +646,38 @@ class RunwayGen4Client:
         if not task_id:
             raise RuntimeError("No task ID in response")
 
+        # Track artifact for later download
+        from ...artifact_manager import get_artifact_manager
+        artifact_manager = get_artifact_manager()
+        artifact_manager.add_artifact(
+            task_id=task_id,
+            provider="runway",
+            model=model,
+            prompt=prompt,
+            metadata={
+                "width": width,
+                "height": height,
+                "duration": duration,
+                "image_path": image_path
+            }
+        )
+
         # Poll until complete
         completed_task = self.poll_task(task_id)
 
-        # Get output URL
+        # Get output URL and update artifact
         output_urls = completed_task.get("output", [])
         if not output_urls:
             raise RuntimeError("No output URL in completed task")
+
+        download_url = output_urls[0]
+        artifact_manager.update_download_url(task_id, download_url)
+
+        self.logger.info("Runway task completed. You can download later with:")
+        self.logger.info(f"   python -m video_gen.artifact_manager download {task_id}")
+
+        # Continue with existing download logic
+        # Get output URL
 
         video_url = output_urls[0]
 

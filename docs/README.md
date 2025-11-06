@@ -17,7 +17,8 @@ Welcome to the Multi-Backend Video Generator documentation. This directory conta
 
 ### Advanced Topics
 - 🔗 **[Stitching Guide](advanced/stitching.md)** - Multi-clip seamless video generation
-- 🖼️ **[Image Grouping Guide](advanced/image-grouping.md)** - Control which images are used per clip
+- � **[Artifact Management](artifact-management.md)** - Track, list, and download generated videos
+- �🖼️ **[Image Grouping Guide](advanced/image-grouping.md)** - Control which images are used per clip
 - 📋 **[Image Grouping Quick Reference](advanced/image-grouping-quick.md)** - TL;DR version
 - 🎯 **[Prompt Engineering](advanced/prompts.md)** - Writing effective video prompts
 - 🛠️ **[Troubleshooting](advanced/troubleshooting.md)** - Common issues and solutions
@@ -82,6 +83,7 @@ Key features include:
 - ✅ Flexible image input (wildcards, multiple files, mixed formats)
 - ✅ Automatic retry logic with exponential backoff
 - ✅ Seamless multi-clip stitching (Veo 3.1, RunwayML Veo)
+- ✅ Comprehensive artifact management for video tracking and download
 - ✅ Comprehensive logging and error handling
 - ✅ Modular, maintainable architecture
 

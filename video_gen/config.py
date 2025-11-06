@@ -238,7 +238,7 @@ def print_available_providers() -> None:
     print("=" * 70)
 
 
-def print_available_models(provider: VideoProvider = None, query_api: bool = True) -> None:
+def print_available_models(provider: Optional[VideoProvider] = None, query_api: bool = True) -> None:
     """
     Print available models for one or all providers.
     

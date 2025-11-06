@@ -39,6 +39,7 @@ from video_gen.video_generator import generate_video
 from video_gen.file_handler import FileHandler
 from video_gen.arg_parser import SoraArgumentParser
 from video_gen.logger import init_library_logger
+from video_gen.exceptions import AuthenticationError
 
 
 def _check_providers_and_display_header():
@@ -59,13 +60,8 @@ def _check_providers_and_display_header():
     return available_providers
 
 
-def _process_images_and_display_config(args, config):
-    """Process image paths and display configuration."""
-    provider = args['provider']
-    prompt = args['prompt']
-    images = args['images']
-    stitch = args.get('stitch', False)
-    
+def _display_provider_and_prompt(provider: str, prompt: str, stitch: bool) -> None:
+    """Display provider and prompt information."""
     print(f"🎯 Using provider: {provider}")
     
     # In stitch mode, prompt is None and prompts list is used instead
@@ -74,15 +70,22 @@ def _process_images_and_display_config(args, config):
             print(f"📝 Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         else:
             print("📝 No prompt provided.")
-    
+
+
+def _process_image_files(images: list, config) -> list:
+    """Process and expand image file paths."""
     file_paths = []
     if images:
         file_handler = FileHandler(config, None)
         file_paths = file_handler.expand_image_paths(images)
         print(f"🖼️  Found {len(file_paths)} image file(s)")
-    
+    return file_paths
+
+
+def _display_configuration(args: dict, stitch: bool) -> None:
+    """Display the video generation configuration."""
     print("\n📋 Configuration:")
-    print(f"   Backend: {provider}")
+    print(f"   Backend: {args['provider']}")
     print(f"   Dimensions: {args['width']}x{args['height']} @ {args['fps']}fps")
     print(f"   Duration: {args['duration']} seconds")
     if args['seed']:
@@ -90,13 +93,29 @@ def _process_images_and_display_config(args, config):
     
     if not stitch:
         print(f"   Output: {args['output']}")
-    
+
+
+def _display_image_references(file_paths: list) -> None:
+    """Display information about image references."""
     if file_paths:
         print(f"\n🖼️  Using {len(file_paths)} image reference(s):")
         for i, path in enumerate(file_paths, 1):
             print(f"   {i:2d}. {path}")
     else:
         print("\n📝 Text-only generation (no image references)")
+
+
+def _process_images_and_display_config(args, config):
+    """Process image paths and display configuration."""
+    provider = args['provider']
+    prompt = args['prompt']
+    images = args['images']
+    stitch = args.get('stitch', False)
+    
+    _display_provider_and_prompt(provider, prompt, stitch)
+    file_paths = _process_image_files(images, config)
+    _display_configuration(args, stitch)
+    _display_image_references(file_paths)
     
     print("\n🚀 Starting video generation...")
     print("=" * 50)
@@ -239,6 +258,10 @@ def main():
     except KeyboardInterrupt:
         print("\n👋 Video generation cancelled by user")
         sys.exit(130)
+    except AuthenticationError:
+        # Authentication errors already display user-friendly messages
+        # Just exit cleanly without showing a traceback
+        sys.exit(1)
     except RuntimeError as e:
         if "Operation cancelled by user" in str(e):
             print("👋 Video generation cancelled by user")
@@ -378,7 +401,7 @@ def _run_stitching_mode(args, config, file_paths, provider):
     
     Supports both Google Veo (google provider) and RunwayML Veo (runway provider with veo* models).
     """
-    from video_gen.video_generator import generate_video_sequence_with_veo3_stitching
+    from video_gen.video_stitching import generate_video_sequence_with_veo3_stitching
 
     prompts = args["prompts"]  # List of prompts for each clip
     model = args["model"] or config.default_model

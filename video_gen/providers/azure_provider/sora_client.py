@@ -7,10 +7,8 @@ including handling async job polling and video download.
 
 import logging
 import time
-import random
-import requests
-from typing import Optional, Dict, Any, List
-from pathlib import Path
+from typing import Dict, Any, List, Optional
+
 from openai import AzureOpenAI
 
 from .config import AzureSoraConfig
@@ -32,7 +30,7 @@ class AzureSoraAPIClient:
         Args:
             config: Azure Sora configuration containing endpoint, API key, and retry settings
         """
-        if AzureOpenAI is None:
+        if not hasattr(AzureOpenAI, '__init__'):
             raise ImportError("Please `pip install openai` (version 1.0.0+) first.")
         
         self.config = config
@@ -77,8 +75,8 @@ class AzureSoraAPIClient:
         height: int,
         fps: int,
         duration_seconds: int,
-        seed: int = None,
-        model: str = None
+        seed: Optional[int] = None,
+        model: Optional[str] = None
     ) -> Any:
         """
         Create a video generation request with retry logic.
@@ -99,52 +97,104 @@ class AzureSoraAPIClient:
             RuntimeError: For non-retryable API errors
             KeyboardInterrupt: If user cancels during retry
         """
-        # Use specified model or fall back to config default
         selected_model = model or self.config.default_model
-        
-        retry_count = 0
         self.logger.info(f"Creating Azure Sora video request: model={selected_model}, {width}x{height}, {fps}fps, {duration_seconds}s")
         self.logger.debug(f"Content items: {len(content_items)} items, seed: {seed}")
+        
+        return self._execute_azure_video_request_with_retry(
+            selected_model, content_items, width, height, fps, duration_seconds, seed
+        )
+    
+    def _execute_azure_video_request_with_retry(
+        self,
+        model: str,
+        content_items: List[Dict[str, Any]],
+        width: int,
+        height: int,
+        fps: int,
+        duration_seconds: int,
+        seed: Optional[int] = None
+    ) -> Any:
+        """
+        Execute Azure video request with infinite retry on capacity issues.
+        
+        Args:
+            model: Model to use for generation
+            content_items: List of content items (text + images)
+            width: Video width in pixels
+            height: Video height in pixels
+            fps: Frames per second
+            duration_seconds: Video duration in seconds
+            seed: Optional random seed
+            
+        Returns:
+            API response object
+            
+        Raises:
+            RuntimeError: For non-retryable errors
+        """
+        retry_count = 0
         
         while True:  # Retry forever until success
             try:
                 self.logger.debug(f"Sending Azure API request (attempt {retry_count + 1})")
+                
+                # Prepare Azure-specific request parameters  
+                messages = [{"role": "user", "content": str(content_items)}]  # type: ignore
+                extra_body = self._prepare_azure_extra_body(width, height, duration_seconds, fps, seed)
+                
                 response = self.client.chat.completions.create(
-                    model=selected_model,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": content_items,
-                        }
-                    ],
-                    extra_body={
-                        "video": {
-                            "format": "mp4",
-                            "dimensions": f"{width}x{height}",
-                            "duration": duration_seconds,
-                            "fps": fps,
-                            **({"seed": seed} if seed is not None else {}),
-                        }
-                    }
+                    model=model,
+                    messages=messages,  # type: ignore
+                    extra_body=extra_body
                 )
                 
-                # Success - return response
                 self.logger.info("Azure Sora API request successful")
                 return response
                 
             except Exception as e:
-                error_str = str(e)
-                self.logger.debug(f"Azure API error occurred: {error_str}")
-                
-                # Check for capacity issues that should trigger retry
-                if self._is_capacity_error(error_str):
+                if self._is_capacity_error(str(e)):
                     retry_count += 1
                     self.logger.warning(f"Azure capacity issue detected, retrying... (attempt {retry_count})")
                     self._handle_capacity_retry(retry_count)
                     continue
-                
-                # Handle non-retryable errors
-                self._handle_fatal_error(error_str, e)
+                else:
+                    self._handle_fatal_error(str(e), e)
+    
+    def _prepare_azure_extra_body(
+        self, 
+        width: int, 
+        height: int, 
+        duration_seconds: int, 
+        fps: int, 
+        seed: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Prepare Azure-specific extra_body parameters.
+        
+        Args:
+            width: Video width in pixels
+            height: Video height in pixels
+            duration_seconds: Video duration in seconds
+            fps: Frames per second
+            seed: Optional random seed
+            
+        Returns:
+            Dictionary of extra_body parameters
+        """
+        extra_body: Dict[str, Any] = {
+            "video": {
+                "format": "mp4",
+                "dimensions": f"{width}x{height}",
+                "duration": duration_seconds,
+                "fps": fps,
+            }
+        }
+        
+        if seed is not None:
+            extra_body["video"]["seed"] = seed
+        
+        return extra_body
     
     def _is_capacity_error(self, error_str: str) -> bool:
         """Check if error indicates capacity/rate limit issue."""
@@ -289,9 +339,14 @@ class AzureSoraAPIClient:
         else:
             blob = content  # already bytes
         
-        self.logger.debug(f"Writing video to: {output_path} ({len(blob)} bytes)")
+        # Convert to bytes if needed for type safety
+        if hasattr(blob, '__len__'):
+            self.logger.debug(f"Writing video to: {output_path} ({len(blob)} bytes)")  # type: ignore
+        else:
+            self.logger.debug(f"Writing video to: {output_path}")
+        
         # Save video to specified output path
         with open(output_path, "wb") as f:
-            f.write(blob)
+            f.write(blob)  # type: ignore
         
         self.logger.info(f"Video downloaded successfully from Azure: {output_path}")
