@@ -34,7 +34,7 @@ All providers export their API client class and configuration class.
 from .openai_provider import SoraAPIClient
 from .azure_provider import AzureSoraAPIClient
 from .google_provider import Veo3APIClient
-from .runway_provider import RunwayGen4Client, RunwayVeoClient
+from .runway_provider import RunwayGen4Client, RunwayVeoClient, RunwayAlephClient
 
 __all__ = [
     'SoraAPIClient',
@@ -42,4 +42,5 @@ __all__ = [
     'Veo3APIClient',
     'RunwayGen4Client',
     'RunwayVeoClient',
+    'RunwayAlephClient',
 ]

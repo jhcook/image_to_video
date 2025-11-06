@@ -1,16 +1,35 @@
 # RunwayML Backend Guide
 
-Complete guide to using RunwayML's Gen-4 and Google Veo models through RunwayML's API.
+Complete guide to using RunwayML's Gen-4, Google Veo, and Aleph models through RunwayML's API.
 
 ## Overview
 
-RunwayML provides access to both their own Gen-4 models and Google's Veo models through a unified API. Key features:
+RunwayML provides access to multiple advanced video generation and editing models through a unified API. Key features:
 
 - **Simple authentication** with API key only
 - **Gen-4 models**: Fast turnaround with turbo option
 - **Veo models**: Access Google Veo without Google Cloud setup
+- **Aleph model**: State-of-the-art video editing and transformation
 - **Stitching support**: Seamless multi-clip videos with Veo models
 - **Flexible pricing**: Pay-as-you-go credit system
+
+## Available Models
+
+### Gen-4 Models
+- **gen4**: Standard RunwayML generation model
+- **gen4_turbo**: Faster generation with similar quality
+
+### Veo Models (Google)
+- **veo3**: Standard Google Veo model
+- **veo3.1**: Improved version with better quality
+- **veo3.1_fast**: Faster generation with good quality
+
+### Aleph Model
+- **aleph**: State-of-the-art video editing and transformation model
+  - Can edit existing videos with text prompts
+  - Can generate new videos from prompts and images
+  - Supports 2-30 second duration (longer than other models)
+  - Maintains temporal consistency during edits
 
 ## Prerequisites
 
@@ -172,6 +191,48 @@ RunwayML now provides Google's Veo models with simpler authentication!
 ```
 
 **Important:** Gen-4 models only support **one image**. If you provide multiple, only the first is used. Veo models support up to **3 reference images**.
+
+### Video Editing with Aleph
+
+The Aleph model offers unique video editing capabilities, allowing you to transform existing videos with text prompts:
+
+```python
+# Python API for video editing
+from video_gen import edit_video_with_runway_aleph
+
+# Transform video style
+edited_path = edit_video_with_runway_aleph(
+    "Transform this into an oil painting style",
+    "input_video.mp4",
+    duration_seconds=10,
+    out_path="oil_painting_style.mp4"
+)
+
+# Change environment/setting
+edited_path = edit_video_with_runway_aleph(
+    "Move this scene to a tropical beach setting",
+    "original.mp4",
+    duration_seconds=15
+)
+```
+
+**Aleph Generation (Alternative to editing):**
+```python
+# Generate new video with Aleph
+from video_gen import generate_video_with_runway_aleph
+
+video_path = generate_video_with_runway_aleph(
+    "A cinematic high-quality scene of mountains",
+    image_path="reference.jpg",  # Optional
+    duration_seconds=20  # Up to 30 seconds
+)
+```
+
+**Key Aleph Features:**
+- **Video Editing**: Transform existing videos while preserving temporal consistency
+- **Extended Duration**: Supports 2-30 seconds (longer than Gen-4/Veo)
+- **High Quality**: State-of-the-art results for both editing and generation
+- **Flexible Input**: Works with videos for editing, images for generation
 
 ## Model-Specific Features
 

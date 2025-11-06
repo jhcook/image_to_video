@@ -9,7 +9,7 @@ implementations.
 The provider-specific generation logic has been extracted to separate modules:
 - video_gen.providers.sora_generator: OpenAI and Azure Sora implementations
 - video_gen.providers.veo3_generator: Google Veo-3 implementation  
-- video_gen.providers.runway_generator: RunwayML Gen-4 and Veo implementations
+- video_gen.providers.videotransformer: RunwayML Gen-4, Veo, and Aleph implementations
 
 Utility functions have been moved to:
 - video_gen.video_utils: Frame extraction, model validation, path utilities
@@ -18,14 +18,16 @@ Utility functions have been moved to:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Union
+from typing import Iterable, Union, Optional, Any
 
 from .config import VideoProvider
 from .logger import get_library_logger
-from .video_utils import validate_model_for_provider
+from .video_utils import validate_model_for_provider, extract_last_frame_as_png  # type: ignore
 from .providers.sora_generator import generate_video_with_sora2, generate_video_with_azure_sora
 from .providers.veo3_generator import generate_video_with_veo3
-from .providers.runway_generator import generate_video_with_runway
+from .providers.runway_generator import generate_video_with_runway, generate_video_with_runway_veo  # type: ignore
+from .providers.runway_aleph_functions import edit_video_with_runway_aleph
+from .video_stitching import generate_video_sequence_with_veo3_stitching  # type: ignore
 
 
 def generate_video(
@@ -33,14 +35,14 @@ def generate_video(
     file_paths: Iterable[Union[str, Path]] = (),
     *,
     provider: VideoProvider = "openai",
-    model: str = None,
+    model: Optional[str] = None,
     width: int = 1280,
     height: int = 720,
     fps: int = 24,
     duration_seconds: int = 8,
-    seed: int = None,
-    out_path: str = None,
-    config = None
+    seed: Optional[int] = None,
+    out_path: Optional[str] = None,
+    config: Optional[Any] = None
 ) -> str:
     """
     Generate a video using the specified provider (OpenAI, Azure, Google, or Runway).
@@ -140,4 +142,5 @@ __all__ = [
     "generate_video_with_azure_sora", 
     "generate_video_with_veo3",
     "generate_video_with_runway",
+    "edit_video_with_runway_aleph",
 ]

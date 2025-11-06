@@ -32,6 +32,7 @@ class RunwayConfig:
     SUPPORTED_MODELS = (
         "gen4_turbo",      # RunwayML Gen-4 Turbo (fastest)
         "gen4",            # RunwayML Gen-4 (higher quality)
+        "gen4_aleph",      # RunwayML Gen-4 Aleph (video editing and transformation)
         "veo3",            # Google Veo 3.0 via RunwayML (40 credits/sec)
         "veo3.1",          # Google Veo 3.1 via RunwayML (40 credits/sec)
         "veo3.1_fast",     # Google Veo 3.1 Fast via RunwayML (20 credits/sec)
@@ -91,10 +92,16 @@ class RunwayConfig:
         
         # Validate duration based on model
         is_veo = self.default_model.startswith("veo")
+        is_aleph = self.default_model == "gen4_aleph"
+        
         if is_veo:
             # Veo models support 2-10 seconds
             if not (2 <= self.default_duration <= 10):
                 raise ValueError("Veo models support duration between 2-10 seconds")
+        elif is_aleph:
+            # Aleph supports variable duration for video editing tasks
+            if not (2 <= self.default_duration <= 30):
+                raise ValueError("Aleph model supports duration between 2-30 seconds")
         else:
             # Gen-4 models support 5 or 10 seconds
             if self.default_duration not in [5, 10]:

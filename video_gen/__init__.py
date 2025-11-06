@@ -30,15 +30,18 @@ Provider Modules:
 __version__ = "2.1.0"
 __author__ = "Justin Cook"
 
-from .video_generator import generate_video_with_sora2, generate_video_with_veo3, generate_video_with_runway, generate_video
+from .video_generator import generate_video_with_sora2, generate_video_with_veo3, generate_video_with_runway, generate_video, edit_video_with_runway_aleph
 from .config import SoraConfig, Veo3Config, RunwayConfig, get_available_models, get_default_model, print_available_models
 from .logger import init_library_logger, get_library_logger
+from .providers.runway_aleph_functions import generate_video_with_runway_aleph
 
 __all__ = [
     'generate_video_with_sora2', 
     'generate_video_with_veo3',
     'generate_video_with_runway',
     'generate_video',
+    'edit_video_with_runway_aleph',
+    'generate_video_with_runway_aleph',
     'SoraConfig', 
     'Veo3Config',
     'RunwayConfig',
